@@ -1,0 +1,6 @@
+data/com.ranfdev.SharMaVid.desktop.in.in
+data/com.ranfdev.SharMaVid.gschema.xml.in
+data/com.ranfdev.SharMaVid.metainfo.xml.in.in
+data/resources/ui/shortcuts.ui
+data/resources/ui/window.ui
+src/application.rs
