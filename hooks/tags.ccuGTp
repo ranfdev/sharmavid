@@ -1,0 +1,1 @@
+install_rustfmt	pre-commit.hook	/^install_rustfmt() {$/;"	f

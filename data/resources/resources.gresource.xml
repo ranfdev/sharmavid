@@ -4,6 +4,13 @@
     <!-- see https://gtk-rs.org/gtk4-rs/git/docs/gtk4/struct.Application.html#automatic-resources -->
     <file compressed="true" preprocess="xml-stripblanks" alias="gtk/help-overlay.ui">ui/shortcuts.ui</file>
     <file compressed="true" preprocess="xml-stripblanks">ui/window.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">ui/video_row.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">ui/video_page.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">ui/channel_page.ui</file>
+    <file compressed="true" preprocess="xml-stripblanks">ui/thumbnail.ui</file>
     <file compressed="true">style.css</file>
+  </gresource>
+  <gresource prefix="/com/ranfdev/SharMaVid/icons/16x16/actions/">
+    <file preprocess="xml-stripblanks" alias="social-network-symbolic.svg">icons/social-network-symbolic.svg</file>
   </gresource>
 </gresources>

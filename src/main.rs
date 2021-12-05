@@ -1,12 +1,24 @@
-mod application;
 #[rustfmt::skip]
 mod config;
+mod channel_page;
+mod glib_utils;
+mod invidious;
+mod invidious_client;
+mod remote_image;
+mod thumbnail;
+mod video_page;
+mod video_row;
 mod window;
 
 use gettextrs::{gettext, LocaleCategory};
-use gtk::{gio, glib};
+use gtk::{gdk, gio, glib};
+pub use invidious_client::Client;
+use libadwaita as adw;
+use libadwaita::prelude::*;
+pub use remote_image::*;
+pub use video_row::*;
+use window::SharMaVidWindow;
 
-use self::application::ExampleApplication;
 use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 
 fn main() {
@@ -21,10 +33,22 @@ fn main() {
     glib::set_application_name(&gettext("SharMaVid"));
 
     gtk::init().expect("Unable to start GTK4");
+    adw::init();
 
     let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
     gio::resources_register(&res);
+    let theme = gtk::IconTheme::for_display(&gdk::Display::default().unwrap()).unwrap();
+    theme.add_resource_path("/com/ranfdev/SharMaVid/icons/");
 
-    let app = ExampleApplication::new();
+    let app = adw::Application::new(Some(config::APP_ID), gio::ApplicationFlags::FLAGS_NONE);
+
+    let client = Client::new("https://inv.riverside.rocks".to_string())
+        .expect("failed creating backend client");
+    app.connect_activate(move |app| {
+        let win = SharMaVidWindow::new(&app, client.clone());
+        win.load_popular();
+        win.present();
+    });
+
     app.run();
 }

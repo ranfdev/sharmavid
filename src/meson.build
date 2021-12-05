@@ -19,10 +19,19 @@ run_command(
 )
 
 rust_sources = files(
-  'application.rs',
   'config.rs',
   'main.rs',
   'window.rs',
+  'invidious.rs',
+  'video_row.rs',
+  'thumbnail.rs',
+  'video_page.rs',
+  'glib_utils/any_list_model.rs',
+  'glib_utils/any_gobject.rs',
+  'glib_utils/mod.rs',
+  'channel_page.rs',
+  'invidious_client.rs',
+  'remote_image.rs'
 )
 
 sources = [rust_sources, cargo_sources]

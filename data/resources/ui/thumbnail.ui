@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="Thumbnail" parent="GtkBox">
+    <child>
+      <object class="GtkStack" id="stack">
+        <property name="transition-type">crossfade</property>
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">placeholder</property>
+            <property name="child">
+              <object class="GtkImage" id="play-icon">
+                <binding name="width-request">
+                  <lookup name="width-request">Thumbnail</lookup>
+                </binding>
+                <binding name="hexpand">
+                  <lookup name="hexpand">Thumbnail</lookup>
+                </binding>
+                <style>
+                  <class name="osd"/>
+                </style>
+                <property name="icon-name">media-playback-start-symbolic</property>
+              </object>
+            </property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkStackPage">
+            <property name="name">img</property>
+            <property name="child">
+              <object class="GtkPicture" id="img">
+              </object>
+            </property>
+          </object>
+        </child>
+      </object>
+
+    </child>
+
+  </template>
+</interface>
+

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="VideoRow" parent="GtkListBoxRow">
+    <child>
+      <object class="GtkBox">
+        <property name="margin-top">8</property>
+        <property name="margin-bottom">8</property>
+        <property name="margin-start">4</property>
+        <property name="margin-end">4</property>
+        <property name="spacing">8</property>
+        <child>
+          <object class="GtkBox" id="thumbnail_space">
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="description_space">
+            <property name="hexpand">true</property>
+            <property name="vexpand">true</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">8</property>
+            <child>
+              <object class="GtkLabel" id="title">
+                <property name="halign">start</property>
+                <property name="label" translatable="yes">Video title</property>
+                <property name="xalign" translatable="yes">0.0</property>
+                <property name="wrap" translatable="yes">true</property>
+                <property name="wrap-mode" translatable="yes">word-char</property>
+                <style>
+                  <class name="heading"/>
+                </style>
+
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="author">
+                <property name="halign">start</property>
+                <property name="xalign" translatable="yes">0.0</property>
+                <property name="label" translatable="yes">Alice</property>
+                <property name="ellipsize" translatable="yes">end</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="views">
+                <property name="halign">start</property>
+                <property name="label" translatable="yes">200k view</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+      </object>
+    </child>
+
+  </template>
+</interface>
+  
