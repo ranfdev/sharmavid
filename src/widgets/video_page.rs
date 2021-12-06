@@ -1,7 +1,7 @@
 use crate::glib_utils::RustedListModel;
-use crate::invidious::{Comment, TrendingVideo};
-use crate::thumbnail::Thumbnail;
-use crate::{Client, RemoteImage};
+use crate::invidious::core::{Comment, TrendingVideo};
+use crate::widgets::{RemoteImage, Thumbnail};
+use crate::Client;
 use glib::subclass::signal::Signal;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;

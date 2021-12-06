@@ -1,9 +1,7 @@
-use crate::channel_page::ChannelPage;
 use crate::config::{APP_ID, PROFILE};
 use crate::glib_utils::RustedListModel;
-use crate::invidious::TrendingVideo;
-use crate::video_page::VideoPage;
-use crate::video_row;
+use crate::invidious::core::TrendingVideo;
+use crate::widgets::{ChannelPage, VideoPage, VideoRow};
 use crate::Client;
 use adw::subclass::prelude::*;
 use gtk::prelude::*;
@@ -132,9 +130,7 @@ impl SharMaVidWindow {
         let self_ = imp::SharMaVidWindow::from_instance(self);
         self_
             .video_list_model
-            .bind_to_list_box(&*self_.video_list, move |v| {
-                video_row::VideoRow::new(v).upcast()
-            });
+            .bind_to_list_box(&*self_.video_list, move |v| VideoRow::new(v).upcast());
         let client = self_.client.get().unwrap();
         self_.channel_page.set_client(client.clone());
         self_.video_page.set_client(client.clone());
@@ -163,7 +159,7 @@ impl SharMaVidWindow {
         });
         let video_page = self_.video_page.clone();
         self_.video_list.connect_row_activated(move |_, row| {
-            let child: video_row::VideoRow = row.clone().downcast().unwrap();
+            let child: VideoRow = row.clone().downcast().unwrap();
             stack.set_visible_child_name("video");
             video_page.set_video(child.video());
         });

@@ -1,4 +1,4 @@
-use crate::invidious::*;
+use crate::invidious::core::*;
 use surf::Url;
 
 #[derive(Clone, Debug)]

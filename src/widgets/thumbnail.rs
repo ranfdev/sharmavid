@@ -1,4 +1,4 @@
-use crate::RemoteImage;
+use crate::widgets::RemoteImage;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;

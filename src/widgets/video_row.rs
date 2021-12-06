@@ -3,8 +3,8 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use std::cell::RefCell;
 
-use crate::invidious;
-use crate::thumbnail::Thumbnail;
+use crate::invidious::core::*;
+use crate::widgets::Thumbnail;
 
 mod imp {
     use super::*;
@@ -23,7 +23,7 @@ mod imp {
         #[template_child]
         pub thumbnail_space: TemplateChild<gtk::Box>,
         pub thumbnail: Thumbnail,
-        pub video: RefCell<invidious::TrendingVideo>,
+        pub video: RefCell<TrendingVideo>,
     }
 
     impl Default for VideoRow {
@@ -34,7 +34,7 @@ mod imp {
                 author: TemplateChild::default(),
                 thumbnail_space: TemplateChild::default(),
                 thumbnail: Thumbnail::new(None),
-                video: RefCell::new(invidious::TrendingVideo::default()),
+                video: RefCell::new(TrendingVideo::default()),
             }
         }
     }
@@ -65,13 +65,13 @@ glib::wrapper! {
 }
 
 impl VideoRow {
-    pub fn new(video: invidious::TrendingVideo) -> Self {
+    pub fn new(video: TrendingVideo) -> Self {
         let obj: VideoRow = glib::Object::new(&[]).expect("Failed to create VideoRow");
         obj.prepare_widgets();
         obj.set_video(video);
         obj
     }
-    pub fn set_video(&self, mut video: invidious::TrendingVideo) {
+    pub fn set_video(&self, mut video: TrendingVideo) {
         let self_ = imp::VideoRow::from_instance(self);
 
         video
@@ -93,7 +93,7 @@ impl VideoRow {
         self_.thumbnail.set_width_request(160);
         self_.thumbnail.set_height_request(90);
     }
-    pub fn video(&self) -> invidious::TrendingVideo {
+    pub fn video(&self) -> TrendingVideo {
         let self_ = imp::VideoRow::from_instance(self);
         self_.video.borrow().clone()
     }

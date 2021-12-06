@@ -1,7 +1,7 @@
 use crate::glib_utils::RustedListModel;
-use crate::invidious::TrendingVideo;
-use crate::RemoteImage;
-use crate::{Client, VideoRow};
+use crate::invidious::core::TrendingVideo;
+use crate::widgets::{RemoteImage, VideoRow};
+use crate::Client;
 use anyhow::anyhow;
 use gtk::glib;
 use gtk::prelude::*;

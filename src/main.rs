@@ -1,23 +1,15 @@
 #[rustfmt::skip]
 mod config;
-mod channel_page;
 mod glib_utils;
 mod invidious;
-mod invidious_client;
-mod remote_image;
-mod thumbnail;
-mod video_page;
-mod video_row;
-mod window;
+mod widgets;
 
 use gettextrs::{gettext, LocaleCategory};
 use gtk::{gdk, gio, glib};
-pub use invidious_client::Client;
+pub use invidious::client::Client;
 use libadwaita as adw;
 use libadwaita::prelude::*;
-pub use remote_image::*;
-pub use video_row::*;
-use window::SharMaVidWindow;
+use widgets::SharMaVidWindow;
 
 use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 
