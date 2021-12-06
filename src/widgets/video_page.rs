@@ -158,16 +158,14 @@ impl VideoPage {
             let comments = client.comments(&video_id).await.unwrap();
             comments_model.extend(comments.comments.into_iter());
 
-            // Needed because the Video doesn't contain the author image url...
-            let author = client.channel(&video.author_id).await.unwrap();
-            author_name.set_label(&author.author);
-            author_avatar
-                .set_image_url(author.author_thumbnails.first().unwrap().url.clone())
-                .await;
-
-            // Needed because the Video doesn't contain the entire description...
+            // Needed because the Video doesn't contain the entire description and author data.
             let video = client.video(&video.video_id).await.unwrap();
             description.set_label(&video.description);
+
+            author_name.set_label(&video.author);
+            author_avatar
+                .set_image_url(video.author_thumbnails.first().unwrap().url.clone())
+                .await;
 
             let ev_controller = gtk::GestureClick::new();
             ev_controller

@@ -43,6 +43,7 @@ pub struct FullVideo {
     pub author: String,
     pub author_id: String,
     pub author_url: String,
+    pub author_thumbnails: Vec<SizedImage>,
     pub published: i64,
     pub published_text: String,
     pub description: String,
