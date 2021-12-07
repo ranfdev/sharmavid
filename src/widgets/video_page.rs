@@ -1,15 +1,12 @@
 use crate::glib_utils::RustedListModel;
 use crate::invidious::core::{Comment, TrendingVideo};
-use crate::widgets::{RemoteImage, Thumbnail};
+use crate::widgets::{Action, RemoteImage, Thumbnail};
 use crate::Client;
-use glib::subclass::signal::Signal;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
 use libadwaita as adw;
-use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
-use std::cell::RefCell;
 
 mod imp {
     use super::*;
@@ -37,8 +34,9 @@ mod imp {
         pub comments_list: TemplateChild<gtk::ListBox>,
         pub comments_model: RustedListModel<Comment>,
         pub thumbnail: Thumbnail,
-        pub video: RefCell<TrendingVideo>,
+        pub video: OnceCell<TrendingVideo>,
         pub client: OnceCell<Client>,
+        pub action_pusher: OnceCell<glib::Sender<Action>>,
     }
 
     impl Default for VideoPage {
@@ -54,8 +52,9 @@ mod imp {
                 comments_list: TemplateChild::default(),
                 comments_model: RustedListModel::new(),
                 thumbnail: Thumbnail::new(None),
-                video: RefCell::new(TrendingVideo::default()),
+                video: OnceCell::default(),
                 client: OnceCell::default(),
+                action_pusher: OnceCell::default(),
             }
         }
     }
@@ -76,22 +75,7 @@ mod imp {
         }
     }
     impl WidgetImpl for VideoPage {}
-    impl ObjectImpl for VideoPage {
-        fn signals() -> &'static [Signal] {
-            static SIGNALS: Lazy<Vec<Signal>> = Lazy::new(|| {
-                vec![Signal::builder(
-                    // Signal name
-                    "view-channel",
-                    // Types of the values which will be sent to the signal handler
-                    &[String::static_type().into()],
-                    // Type of the value the signal handler sends back
-                    <()>::static_type().into(),
-                )
-                .build()]
-            });
-            SIGNALS.as_ref()
-        }
-    }
+    impl ObjectImpl for VideoPage {}
     impl BoxImpl for VideoPage {}
 }
 
@@ -101,9 +85,12 @@ glib::wrapper! {
 }
 
 impl VideoPage {
-    pub fn new() -> Self {
+    pub fn new(client: Client, video: TrendingVideo, action_pusher: glib::Sender<Action>) -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create VideoPage");
 
+        obj.set_client(client);
+        obj.set_video(video);
+        obj.set_action_pusher(action_pusher);
         obj.prepare_widgets();
         obj
     }
@@ -115,11 +102,12 @@ impl VideoPage {
             .comments_model
             .bind_to_list_box(&*self_.comments_list, |c| Self::build_comment(c));
         let cloned_self = self.clone();
+        let action_pusher = self_.action_pusher.get().unwrap().clone();
         self_.view_channel_btn.connect_clicked(move |_| {
             let self_ = imp::VideoPage::from_instance(&cloned_self);
-            let video = self_.video.borrow();
-            cloned_self
-                .emit_by_name("view-channel", &[&video.author_id])
+            let video = self_.video.get().unwrap();
+            action_pusher
+                .send(Action::ShowChannelByID(video.author_id.clone()))
                 .unwrap();
         });
     }
@@ -127,10 +115,14 @@ impl VideoPage {
         let self_ = imp::VideoPage::from_instance(self);
         self_.client.set(client).unwrap();
     }
+    fn set_action_pusher(&self, action_pusher: glib::Sender<Action>) {
+        let self_ = imp::VideoPage::from_instance(self);
+        self_.action_pusher.set(action_pusher).unwrap();
+    }
 
-    pub fn set_video(&self, mut video: TrendingVideo) {
+    pub(super) fn set_video(&self, mut video: TrendingVideo) {
         let self_ = imp::VideoPage::from_instance(&self);
-        *self_.video.borrow_mut() = video.clone();
+        self_.video.set(video.clone()).unwrap();
         self_.title.set_label(&video.title);
         self_
             .views_plus_time

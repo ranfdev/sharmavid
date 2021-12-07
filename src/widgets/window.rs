@@ -10,6 +10,11 @@ use gtk::{gio, glib};
 use libadwaita as adw;
 use once_cell::sync::OnceCell;
 
+pub enum Action {
+    ShowVideo(TrendingVideo),
+    ShowChannelByID(String),
+}
+
 mod imp {
     use super::*;
 
@@ -26,11 +31,10 @@ mod imp {
         pub stack: TemplateChild<gtk::Stack>,
         #[template_child]
         pub back_btn: TemplateChild<gtk::Button>,
-        pub video_page: VideoPage,
-        pub channel_page: ChannelPage,
         pub video_list_model: RustedListModel<TrendingVideo>,
         pub settings: gio::Settings,
         pub client: OnceCell<Client>,
+        pub action_pusher: OnceCell<glib::Sender<Action>>,
     }
 
     impl Default for SharMaVidWindow {
@@ -40,11 +44,10 @@ mod imp {
                 video_list: TemplateChild::default(),
                 stack: TemplateChild::default(),
                 back_btn: TemplateChild::default(),
-                video_page: VideoPage::new(),
-                channel_page: ChannelPage::new(),
                 video_list_model: RustedListModel::new(),
                 settings: gio::Settings::new(APP_ID),
                 client: OnceCell::new(),
+                action_pusher: OnceCell::new(),
             }
         }
     }
@@ -108,6 +111,7 @@ impl SharMaVidWindow {
             glib::Object::new(&[("application", app)]).expect("Failed to create SharMaVidWindow");
         let self_ = imp::SharMaVidWindow::from_instance(&obj);
         self_.client.set(client).unwrap();
+
         obj.setup_widgets();
         obj
     }
@@ -131,38 +135,78 @@ impl SharMaVidWindow {
         self_
             .video_list_model
             .bind_to_list_box(&*self_.video_list, move |v| VideoRow::new(v).upcast());
-        let client = self_.client.get().unwrap();
-        self_.channel_page.set_client(client.clone());
-        self_.video_page.set_client(client.clone());
 
-        self_.stack.add_named(&self_.video_page, Some("video"));
-        self_.stack.add_named(&self_.channel_page, Some("channel"));
-
-        let stack = self_.stack.clone();
-        self_
-            .video_page
-            .connect_local("view-channel", false, {
-                let stack = stack.clone();
-                let channel_page = self_.channel_page.clone();
-                move |channel_id| {
-                    stack.clone().set_visible_child_name("channel");
-                    channel_page.set_channel(channel_id[1].get().unwrap());
-                    None
-                }
-            })
-            .unwrap();
+        /*self_
+        .video_page
+        .connect_local("view-channel", false, {
+            let stack = stack.clone();
+            let channel_page = self_.channel_page.clone();
+            move |channel_id| {
+                stack.clone().set_visible_child_name("channel");
+                channel_page.set_channel(channel_id[1].get().unwrap());
+                None
+            }
+        })
+        .unwrap();*/
         self_.back_btn.connect_clicked({
             let stack = self_.stack.clone();
             move |_| {
                 stack.clone().set_visible_child_name("home");
+                let model = stack.pages();
+                if let Some(prev_page) = model.item(model.n_items() - 2) {
+                    stack.set_visible_child(
+                        &prev_page
+                            .downcast::<gtk::StackPage>()
+                            .expect("Not a gtk::StackPage")
+                            .child(),
+                    );
+                    if let Some(last_page) = model.item(model.n_items() - 1) {
+                        stack.remove(
+                            &last_page
+                                .downcast::<gtk::StackPage>()
+                                .expect("Not a gtk::StackPage")
+                                .child(),
+                        );
+                    }
+                }
             }
         });
-        let video_page = self_.video_page.clone();
+
+        let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
+        self_.action_pusher.set(sender).unwrap();
+
+        let action_pusher = self.action_pusher();
         self_.video_list.connect_row_activated(move |_, row| {
             let child: VideoRow = row.clone().downcast().unwrap();
-            stack.set_visible_child_name("video");
-            video_page.set_video(child.video());
+            action_pusher
+                .send(Action::ShowVideo(child.video()))
+                .unwrap();
         });
+        let stack = self_.stack.clone();
+        let action_pusher = self.action_pusher();
+        let client = self_.client.get().unwrap().clone();
+        receiver.attach(None, move |action| {
+            match action {
+                Action::ShowVideo(v) => {
+                    let page = VideoPage::new(client.clone(), v, action_pusher.clone());
+                    stack.add_child(&page);
+                    stack.set_visible_child(&page);
+                }
+                Action::ShowChannelByID(c_id) => {
+                    let page = ChannelPage::new(client.clone(), action_pusher.clone());
+                    page.set_channel(c_id);
+                    stack.add_child(&page);
+                    stack.set_visible_child(&page);
+                }
+                _ => panic!("PANIC"),
+            }
+            Continue(true)
+        });
+    }
+
+    pub fn action_pusher(&self) -> glib::Sender<Action> {
+        let self_ = imp::SharMaVidWindow::from_instance(self);
+        self_.action_pusher.get().unwrap().clone()
     }
     fn load_window_size(&self) {
         let self_ = imp::SharMaVidWindow::from_instance(self);

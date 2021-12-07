@@ -1,6 +1,6 @@
 use crate::glib_utils::RustedListModel;
 use crate::invidious::core::TrendingVideo;
-use crate::widgets::{RemoteImage, VideoRow};
+use crate::widgets::{Action, RemoteImage, VideoRow};
 use crate::Client;
 use anyhow::anyhow;
 use gtk::glib;
@@ -29,6 +29,7 @@ mod imp {
         pub video_list: TemplateChild<gtk::ListBox>,
         pub video_list_model: RustedListModel<TrendingVideo>,
         pub client: OnceCell<Client>,
+        pub action_pusher: OnceCell<glib::Sender<Action>>,
     }
 
     impl Default for ChannelPage {
@@ -41,6 +42,7 @@ mod imp {
                 video_list: TemplateChild::default(),
                 video_list_model: RustedListModel::new(),
                 client: OnceCell::new(),
+                action_pusher: OnceCell::new(),
             }
         }
     }
@@ -71,9 +73,12 @@ glib::wrapper! {
 }
 
 impl ChannelPage {
-    pub fn new() -> Self {
+    pub fn new(client: Client, action_pusher: glib::Sender<Action>) -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create ChannelPage");
 
+        let self_ = imp::ChannelPage::from_instance(&obj);
+        self_.client.set(client).unwrap();
+        self_.action_pusher.set(action_pusher).unwrap();
         obj.prepare_widgets();
         obj
     }
