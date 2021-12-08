@@ -173,10 +173,10 @@ impl VideoPage {
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);
-        hbox.set_margin_top(4);
-        hbox.set_margin_bottom(4);
-        hbox.set_margin_start(4);
-        hbox.set_margin_end(4);
+        hbox.set_margin_top(8);
+        hbox.set_margin_bottom(8);
+        hbox.set_margin_start(8);
+        hbox.set_margin_end(8);
         let avatar = adw::Avatar::new(32, Some(&comment.author), true);
         avatar.set_valign(gtk::Align::Start);
         hbox.append(&avatar);

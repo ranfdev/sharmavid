@@ -147,7 +147,7 @@
                             <property name="spacing">8</property>
                             <child>
                               <object class="AdwAvatar" id="author_avatar">
-                                <property name="size">32</property>
+                                <property name="size">40</property>
                                 <property name="halign">start</property>
                               </object>
                             </child>
@@ -155,6 +155,7 @@
                               <object class="GtkBox">
                                 <property name="orientation">vertical</property>
                                 <property name="hexpand">true</property>
+                                <property name="valign">center</property>
                                 <child>
                                   <object class="GtkLabel" id="author_name">
                                     <property name="wrap-mode" translatable="yes">word-char</property>
@@ -178,6 +179,7 @@
                               <object class="GtkButton" id="view_channel_btn">
                                 <property name="label">View</property>
                                 <property name="halign">end</property>
+                                <property name="valign">center</property>
                                 <style>
                                   <class name="outline"/>
                                 </style>

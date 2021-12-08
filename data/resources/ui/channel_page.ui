@@ -29,7 +29,7 @@
                         <property name="spacing">8</property>
                         <child>
                           <object class="AdwAvatar" id="author_avatar">
-                            <property name="size">48</property>
+                            <property name="size">64</property>
                           </object>
                         </child>
                         <child>
