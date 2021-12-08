@@ -8,7 +8,10 @@ use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita as adw;
+use log::warn;
 use once_cell::sync::OnceCell;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub enum Action {
     ShowVideo(TrendingVideo),
@@ -136,41 +139,8 @@ impl SharMaVidWindow {
             .video_list_model
             .bind_to_list_box(&*self_.video_list, move |v| VideoRow::new(v).upcast());
 
-        /*self_
-        .video_page
-        .connect_local("view-channel", false, {
-            let stack = stack.clone();
-            let channel_page = self_.channel_page.clone();
-            move |channel_id| {
-                stack.clone().set_visible_child_name("channel");
-                channel_page.set_channel(channel_id[1].get().unwrap());
-                None
-            }
-        })
-        .unwrap();*/
-        self_.back_btn.connect_clicked({
-            let stack = self_.stack.clone();
-            move |_| {
-                stack.clone().set_visible_child_name("home");
-                let model = stack.pages();
-                if let Some(prev_page) = model.item(model.n_items() - 2) {
-                    stack.set_visible_child(
-                        &prev_page
-                            .downcast::<gtk::StackPage>()
-                            .expect("Not a gtk::StackPage")
-                            .child(),
-                    );
-                    if let Some(last_page) = model.item(model.n_items() - 1) {
-                        stack.remove(
-                            &last_page
-                                .downcast::<gtk::StackPage>()
-                                .expect("Not a gtk::StackPage")
-                                .child(),
-                        );
-                    }
-                }
-            }
-        });
+        let cloned_self = self.clone();
+        self_.back_btn.connect_clicked(move |_| cloned_self.back());
 
         let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
         self_.action_pusher.set(sender).unwrap();
@@ -204,6 +174,42 @@ impl SharMaVidWindow {
         });
     }
 
+    pub fn back(&self) {
+        let self_ = self.impl_();
+        let stack = &self_.stack;
+        stack.set_visible_child_name("home");
+        let model = stack.pages();
+        let n = model.n_items();
+        let pages: [Option<gtk::Widget>; 2] = [
+            model.item(n.overflowing_sub(2).0),
+            model.item(n.overflowing_sub(1).0),
+        ]
+        .map(|page| {
+            page.map(|p| {
+                p.downcast::<gtk::StackPage>()
+                    .expect("Not a gtk::StackPage")
+                    .child()
+            })
+        });
+        match pages {
+            [Some(prev_page), Some(curr_page)] => {
+                stack.set_visible_child(&prev_page);
+                let curr_page = curr_page.clone();
+                let signal_rc = Rc::new(Cell::new(None));
+                let cloned_signal_rc = signal_rc.clone();
+                signal_rc.set(Some(stack.connect_transition_running_notify({
+                    let stack = self_.stack.clone();
+                    move |_| {
+                        if !stack.is_transition_running() {
+                            stack.remove(&curr_page);
+                            stack.disconnect(cloned_signal_rc.take().unwrap());
+                        }
+                    }
+                })));
+            }
+            _ => warn!("No pages to go back to"),
+        }
+    }
     pub fn action_pusher(&self) -> glib::Sender<Action> {
         let self_ = self.impl_();
         self_.action_pusher.get().unwrap().clone()
