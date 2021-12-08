@@ -72,7 +72,7 @@ impl VideoRow {
         obj
     }
     pub fn set_video(&self, mut video: TrendingVideo) {
-        let self_ = imp::VideoRow::from_instance(self);
+        let self_ = self.impl_();
 
         video
             .video_thumbnails
@@ -88,13 +88,13 @@ impl VideoRow {
             .set_label(&format!("{} views", &video.view_count));
     }
     fn prepare_widgets(&self) {
-        let self_ = imp::VideoRow::from_instance(self);
+        let self_ = self.impl_();
         self_.thumbnail_space.append(&self_.thumbnail);
         self_.thumbnail.set_width_request(160);
         self_.thumbnail.set_height_request(90);
     }
     pub fn video(&self) -> TrendingVideo {
-        let self_ = imp::VideoRow::from_instance(self);
+        let self_ = self.impl_();
         self_.video.borrow().clone()
     }
 }

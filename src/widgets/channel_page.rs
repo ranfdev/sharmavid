@@ -76,24 +76,24 @@ impl ChannelPage {
     pub fn new(client: Client, action_pusher: glib::Sender<Action>) -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create ChannelPage");
 
-        let self_ = imp::ChannelPage::from_instance(&obj);
+        let self_ = obj.impl_();
         self_.client.set(client).unwrap();
         self_.action_pusher.set(action_pusher).unwrap();
         obj.prepare_widgets();
         obj
     }
     pub fn set_client(&self, client: Client) {
-        let self_ = imp::ChannelPage::from_instance(&self);
+        let self_ = self.impl_();
         self_.client.set(client).unwrap();
     }
     fn prepare_widgets(&self) {
-        let self_ = imp::ChannelPage::from_instance(self);
+        let self_ = self.impl_();
         self_
             .video_list_model
             .bind_to_list_box(&*self_.video_list, |v| VideoRow::new(v).upcast());
     }
     async fn load_videos(&self, channel_id: String) -> anyhow::Result<()> {
-        let self_ = imp::ChannelPage::from_instance(&self);
+        let self_ = self.impl_();
         let channel = self_
             .client
             .get()

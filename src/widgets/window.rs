@@ -109,7 +109,7 @@ impl SharMaVidWindow {
     pub fn new(app: &adw::Application, client: Client) -> Self {
         let obj: Self =
             glib::Object::new(&[("application", app)]).expect("Failed to create SharMaVidWindow");
-        let self_ = imp::SharMaVidWindow::from_instance(&obj);
+        let self_ = obj.impl_();
         self_.client.set(client).unwrap();
 
         obj.setup_widgets();
@@ -117,7 +117,7 @@ impl SharMaVidWindow {
     }
 
     fn save_window_size(&self) -> Result<(), glib::BoolError> {
-        let self_ = imp::SharMaVidWindow::from_instance(self);
+        let self_ = self.impl_();
 
         let (width, height) = self.default_size();
 
@@ -131,7 +131,7 @@ impl SharMaVidWindow {
         Ok(())
     }
     pub fn setup_widgets(&self) {
-        let self_ = imp::SharMaVidWindow::from_instance(self);
+        let self_ = self.impl_();
         self_
             .video_list_model
             .bind_to_list_box(&*self_.video_list, move |v| VideoRow::new(v).upcast());
@@ -205,11 +205,11 @@ impl SharMaVidWindow {
     }
 
     pub fn action_pusher(&self) -> glib::Sender<Action> {
-        let self_ = imp::SharMaVidWindow::from_instance(self);
+        let self_ = self.impl_();
         self_.action_pusher.get().unwrap().clone()
     }
     fn load_window_size(&self) {
-        let self_ = imp::SharMaVidWindow::from_instance(self);
+        let self_ = self.impl_();
 
         let width = self_.settings.int("window-width");
         let height = self_.settings.int("window-height");
@@ -222,7 +222,7 @@ impl SharMaVidWindow {
         }
     }
     pub fn load_popular(&self) {
-        let self_ = imp::SharMaVidWindow::from_instance(&self);
+        let self_ = self.impl_();
         let video_list_model = self_.video_list_model.clone();
         let client = self_.client.get().unwrap().clone();
         glib::MainContext::default().spawn_local(async move {

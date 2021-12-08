@@ -49,11 +49,11 @@ impl AnyListModel {
     }
 
     pub fn add_item(&self, item: glib::Object) {
-        let imp = imp::AnyListModel::from_instance(self);
+        let self_ = self.impl_();
 
         // Own scope to avoid "already mutably borrowed: BorrowError"
         let pos = {
-            let mut data = imp.vec.borrow_mut();
+            let mut data = self_.vec.borrow_mut();
             data.push(item.clone());
             (data.len() - 1) as u32
         };
@@ -62,16 +62,15 @@ impl AnyListModel {
     }
 
     pub fn clear(&self) {
-        let imp = imp::AnyListModel::from_instance(self);
         let len = self.n_items();
-        imp.vec.borrow_mut().clear();
+        self.impl_().vec.borrow_mut().clear();
         self.items_changed(0, len, 0);
     }
     pub fn extend(&self, iter: impl Iterator<Item = glib::Object>) {
-        let imp = imp::AnyListModel::from_instance(self);
+        let self_ = self.impl_();
 
         let (pos, c) = {
-            let mut data = imp.vec.borrow_mut();
+            let mut data = self_.vec.borrow_mut();
             let plen = data.len();
             data.extend(iter);
             (plen as u32, (data.len() - plen) as u32)

@@ -95,7 +95,7 @@ impl VideoPage {
         obj
     }
     fn prepare_widgets(&self) {
-        let self_ = imp::VideoPage::from_instance(self);
+        let self_ = self.impl_();
         self_.video_player.append(&self_.thumbnail);
         self_.thumbnail.set_hexpand(true);
         self_
@@ -104,7 +104,7 @@ impl VideoPage {
         let cloned_self = self.clone();
         let action_pusher = self_.action_pusher.get().unwrap().clone();
         self_.view_channel_btn.connect_clicked(move |_| {
-            let self_ = imp::VideoPage::from_instance(&cloned_self);
+            let self_ = cloned_self.impl_();
             let video = self_.video.get().unwrap();
             action_pusher
                 .send(Action::ShowChannelByID(video.author_id.clone()))
@@ -112,16 +112,16 @@ impl VideoPage {
         });
     }
     pub fn set_client(&self, client: Client) {
-        let self_ = imp::VideoPage::from_instance(self);
+        let self_ = self.impl_();
         self_.client.set(client).unwrap();
     }
     fn set_action_pusher(&self, action_pusher: glib::Sender<Action>) {
-        let self_ = imp::VideoPage::from_instance(self);
+        let self_ = self.impl_();
         self_.action_pusher.set(action_pusher).unwrap();
     }
 
     pub(super) fn set_video(&self, mut video: TrendingVideo) {
-        let self_ = imp::VideoPage::from_instance(&self);
+        let self_ = self.impl_();
         self_.video.set(video.clone()).unwrap();
         self_.title.set_label(&video.title);
         self_
@@ -160,18 +160,16 @@ impl VideoPage {
                 .await;
 
             let ev_controller = gtk::GestureClick::new();
-            ev_controller
-                .connect("pressed", false, move |_| {
-                    gtk::show_uri(
-                        None::<&gtk::Window>,
-                        &video.adaptive_formats.first().unwrap().url,
-                        0,
-                    );
-                    None
-                })
-                .unwrap();
+            ev_controller.connect("pressed", false, move |_| {
+                gtk::show_uri(
+                    None::<&gtk::Window>,
+                    &video.adaptive_formats.first().unwrap().url,
+                    0,
+                );
+                None
+            });
             thumbnail.add_controller(&ev_controller);
-        })
+        });
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);

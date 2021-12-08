@@ -64,7 +64,7 @@ impl Thumbnail {
     }
 
     pub fn set_href(&self, href: String) {
-        let self_ = imp::Thumbnail::from_instance(&self);
+        let self_ = self.impl_();
         *self_.href.borrow_mut() = href.clone();
 
         let img = self_.img.clone();

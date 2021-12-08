@@ -34,13 +34,11 @@ impl AnyGobject {
     pub fn new(item: Box<dyn std::any::Any>) -> Self {
         let obj: AnyGobject = glib::Object::new(&[]).expect("Failed to create AnyGobject");
 
-        let self_ = imp::AnyGobject::from_instance(&obj);
-        *self_.item.borrow_mut() = item;
+        *obj.impl_().item.borrow_mut() = item;
         obj
     }
     pub fn item<T: 'static + Clone>(&self) -> Option<T> {
-        let self_ = imp::AnyGobject::from_instance(self);
-        self_
+        self.impl_()
             .item
             .borrow()
             .downcast_ref::<T>()
