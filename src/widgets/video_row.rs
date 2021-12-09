@@ -21,8 +21,7 @@ mod imp {
         #[template_child]
         pub views: TemplateChild<gtk::Label>,
         #[template_child]
-        pub thumbnail_space: TemplateChild<gtk::Box>,
-        pub thumbnail: Thumbnail,
+        pub thumbnail: TemplateChild<Thumbnail>,
         pub video: RefCell<TrendingVideo>,
     }
 
@@ -32,8 +31,7 @@ mod imp {
                 title: TemplateChild::default(),
                 views: TemplateChild::default(),
                 author: TemplateChild::default(),
-                thumbnail_space: TemplateChild::default(),
-                thumbnail: Thumbnail::new(None),
+                thumbnail: TemplateChild::default(),
                 video: RefCell::new(TrendingVideo::default()),
             }
         }
@@ -73,13 +71,10 @@ impl VideoRow {
     }
     pub fn set_video(&self, mut video: TrendingVideo) {
         let self_ = self.impl_();
-        self.set_action_target_value(Some(&video.video_id.to_variant()));
-
         video
             .video_thumbnails
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
         *self_.video.borrow_mut() = video.clone();
-
         let thumbnail_url = video.video_thumbnails.last().unwrap().url.clone();
         self_.thumbnail.set_href(thumbnail_url);
         self_.title.set_label(&video.title);
@@ -90,7 +85,6 @@ impl VideoRow {
     }
     fn prepare_widgets(&self) {
         let self_ = self.impl_();
-        self_.thumbnail_space.append(&self_.thumbnail);
         self_.thumbnail.set_width_request(160);
         self_.thumbnail.set_height_request(90);
     }

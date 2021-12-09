@@ -20,11 +20,15 @@ mod imp {
         #[template_child]
         pub title: TemplateChild<gtk::Label>,
         #[template_child]
+        pub miniplayer_title: TemplateChild<gtk::Label>,
+        #[template_child]
         pub views_plus_time: TemplateChild<gtk::Label>,
         #[template_child]
         pub video_player: TemplateChild<gtk::Box>,
         #[template_child]
         pub author_name: TemplateChild<gtk::Label>,
+        #[template_child]
+        pub miniplayer_author: TemplateChild<gtk::Label>,
         #[template_child]
         pub author_avatar: TemplateChild<adw::Avatar>,
         #[template_child]
@@ -35,6 +39,8 @@ mod imp {
         pub comments_list: TemplateChild<gtk::ListBox>,
         pub comments_model: RustedListModel<Comment>,
         pub thumbnail: Thumbnail,
+        #[template_child]
+        pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
         pub video: OnceCell<FullVideo>,
         pub client: OnceCell<Client>,
     }
@@ -43,15 +49,18 @@ mod imp {
         fn default() -> Self {
             Self {
                 title: TemplateChild::default(),
+                miniplayer_title: TemplateChild::default(),
                 views_plus_time: TemplateChild::default(),
                 video_player: TemplateChild::default(),
                 author_name: TemplateChild::default(),
+                miniplayer_author: TemplateChild::default(),
                 author_avatar: TemplateChild::default(),
                 view_channel_btn: TemplateChild::default(),
                 description: TemplateChild::default(),
                 comments_list: TemplateChild::default(),
                 comments_model: RustedListModel::new(),
                 thumbnail: Thumbnail::new(None),
+                miniplayer_thumbnail: TemplateChild::default(),
                 video: OnceCell::default(),
                 client: OnceCell::default(),
             }
@@ -107,6 +116,7 @@ impl VideoPage {
         let self_ = self.impl_();
         self_.video.set(video.clone()).unwrap();
         self_.title.set_label(&video.title);
+        self_.miniplayer_title.set_label(&video.title);
         self_
             .views_plus_time
             .set_label(&format!("{} views · {}", video.view_count, video.published));
@@ -123,7 +133,11 @@ impl VideoPage {
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
         let best_thumbnail = video.video_thumbnails.last().unwrap();
         self_.thumbnail.set_href(best_thumbnail.url.clone());
+        self_
+            .miniplayer_thumbnail
+            .set_href(best_thumbnail.url.clone());
 
+        self_.miniplayer_author.set_label(&video.author);
         self_.author_name.set_label(&video.author);
 
         let ev_controller = gtk::GestureClick::new();

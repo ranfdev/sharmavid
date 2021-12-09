@@ -27,6 +27,8 @@ fn main() {
     gtk::init().expect("Unable to start GTK4");
     adw::init();
 
+    widgets::Thumbnail::static_type();
+
     let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
     gio::resources_register(&res);
     let theme = gtk::IconTheme::for_display(&gdk::Display::default().unwrap()).unwrap();

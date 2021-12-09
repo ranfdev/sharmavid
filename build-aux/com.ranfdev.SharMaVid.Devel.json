@@ -11,7 +11,7 @@
         "--socket=wayland",
         "--device=dri",
         "--talk-name=org.a11y.Bus",
-        "--env=RUST_LOG=sharmavid=debug",
+        "--env=RUST_LOG=sharmavid=trace",
         "--env=G_MESSAGES_DEBUG=none",
         "--env=RUST_BACKTRACE=1"
     ],
