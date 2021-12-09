@@ -73,7 +73,7 @@ impl Thumbnail {
         glib::MainContext::default().spawn_local_with_priority(
             glib::source::PRIORITY_LOW,
             async move {
-                img.set_image_url(href).await;
+                img.set_image_url_future(href).await;
                 stack.set_visible_child_name("img");
             },
         );

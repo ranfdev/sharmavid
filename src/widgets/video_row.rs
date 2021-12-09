@@ -61,7 +61,7 @@ mod imp {
 
 glib::wrapper! {
     pub struct VideoRow(ObjectSubclass<imp::VideoRow>)
-        @extends gtk::Widget, gtk::ListBoxRow;
+        @extends gtk::Widget, gtk::ListBoxRow, gtk::Actionable;
 }
 
 impl VideoRow {
@@ -73,6 +73,7 @@ impl VideoRow {
     }
     pub fn set_video(&self, mut video: TrendingVideo) {
         let self_ = self.impl_();
+        self.set_action_target_value(Some(&video.video_id.to_variant()));
 
         video
             .video_thumbnails

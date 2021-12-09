@@ -1,11 +1,12 @@
 use crate::glib_utils::RustedListModel;
-use crate::invidious::core::{Comment, TrendingVideo};
-use crate::widgets::{Action, RemoteImage, Thumbnail};
+use crate::invidious::core::{Comment, FullVideo, TrendingVideo};
+use crate::widgets::{RemoteImageExt, Thumbnail};
 use crate::Client;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
 use libadwaita as adw;
+use log::info;
 use once_cell::sync::OnceCell;
 
 mod imp {
@@ -34,9 +35,8 @@ mod imp {
         pub comments_list: TemplateChild<gtk::ListBox>,
         pub comments_model: RustedListModel<Comment>,
         pub thumbnail: Thumbnail,
-        pub video: OnceCell<TrendingVideo>,
+        pub video: OnceCell<FullVideo>,
         pub client: OnceCell<Client>,
-        pub action_pusher: OnceCell<glib::Sender<Action>>,
     }
 
     impl Default for VideoPage {
@@ -54,7 +54,6 @@ mod imp {
                 thumbnail: Thumbnail::new(None),
                 video: OnceCell::default(),
                 client: OnceCell::default(),
-                action_pusher: OnceCell::default(),
             }
         }
     }
@@ -85,12 +84,9 @@ glib::wrapper! {
 }
 
 impl VideoPage {
-    pub fn new(client: Client, video: TrendingVideo, action_pusher: glib::Sender<Action>) -> Self {
+    pub fn new(client: Client) -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create VideoPage");
-
         obj.set_client(client);
-        obj.set_video(video);
-        obj.set_action_pusher(action_pusher);
         obj.prepare_widgets();
         obj
     }
@@ -98,77 +94,59 @@ impl VideoPage {
         let self_ = self.impl_();
         self_.video_player.append(&self_.thumbnail);
         self_.thumbnail.set_hexpand(true);
+        self_.thumbnail.set_height_request(200);
         self_
             .comments_model
             .bind_to_list_box(&*self_.comments_list, |c| Self::build_comment(c));
-        let cloned_self = self.clone();
-        let action_pusher = self_.action_pusher.get().unwrap().clone();
-        self_.view_channel_btn.connect_clicked(move |_| {
-            let self_ = cloned_self.impl_();
-            let video = self_.video.get().unwrap();
-            action_pusher
-                .send(Action::ShowChannelByID(video.author_id.clone()))
-                .unwrap();
-        });
     }
     pub fn set_client(&self, client: Client) {
         let self_ = self.impl_();
         self_.client.set(client).unwrap();
     }
-    fn set_action_pusher(&self, action_pusher: glib::Sender<Action>) {
-        let self_ = self.impl_();
-        self_.action_pusher.set(action_pusher).unwrap();
-    }
-
-    pub(super) fn set_video(&self, mut video: TrendingVideo) {
+    pub(super) fn set_video(&self, mut video: FullVideo) {
         let self_ = self.impl_();
         self_.video.set(video.clone()).unwrap();
         self_.title.set_label(&video.title);
         self_
             .views_plus_time
             .set_label(&format!("{} views · {}", video.view_count, video.published));
-
         self_.author_name.set_label(&video.author);
-        if let Some(description) = video.description {
-            self_.description.set_label(&description);
-        }
+        self_.description.set_label(&video.description);
+        self_
+            .view_channel_btn
+            .set_action_target_value(Some(&video.author_id.to_variant()));
+        self_
+            .view_channel_btn
+            .set_action_name(Some("win.view-channel"));
         video
             .video_thumbnails
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
         let best_thumbnail = video.video_thumbnails.last().unwrap();
         self_.thumbnail.set_href(best_thumbnail.url.clone());
 
+        self_.author_name.set_label(&video.author);
+
+        let ev_controller = gtk::GestureClick::new();
+        ev_controller.connect("pressed", false, move |_| {
+            gtk::show_uri(
+                None::<&gtk::Window>,
+                &video.adaptive_formats.first().unwrap().url,
+                0,
+            );
+            None
+        });
+        self_.thumbnail.add_controller(&ev_controller);
+        self_
+            .author_avatar
+            .set_image_url(video.author_thumbnails.first().unwrap().url.clone());
+
         let video_id = video.video_id.clone();
-        let thumbnail = self_.thumbnail.clone();
         let comments_model = self_.comments_model.clone();
-        let author_name = self_.author_name.clone();
-        let author_avatar = self_.author_avatar.clone();
-        let description = self_.description.clone();
         let client = self_.client.get().unwrap().clone();
         glib::MainContext::default().spawn_local_with_priority(glib::PRIORITY_LOW, async move {
             comments_model.clear();
             let comments = client.comments(&video_id).await.unwrap();
             comments_model.extend(comments.comments.into_iter());
-
-            // Needed because the Video doesn't contain the entire description and author data.
-            let video = client.video(&video.video_id).await.unwrap();
-            description.set_label(&video.description);
-
-            author_name.set_label(&video.author);
-            author_avatar
-                .set_image_url(video.author_thumbnails.first().unwrap().url.clone())
-                .await;
-
-            let ev_controller = gtk::GestureClick::new();
-            ev_controller.connect("pressed", false, move |_| {
-                gtk::show_uri(
-                    None::<&gtk::Window>,
-                    &video.adaptive_formats.first().unwrap().url,
-                    0,
-                );
-                None
-            });
-            thumbnail.add_controller(&ev_controller);
         });
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
@@ -177,9 +155,17 @@ impl VideoPage {
         hbox.set_margin_bottom(8);
         hbox.set_margin_start(8);
         hbox.set_margin_end(8);
+
         let avatar = adw::Avatar::new(32, Some(&comment.author), true);
-        avatar.set_valign(gtk::Align::Start);
-        hbox.append(&avatar);
+        avatar.set_image_url(comment.author_thumbnails.first().unwrap().url.clone());
+        let avatar_btn = gtk::Button::builder()
+            .child(&avatar)
+            .valign(gtk::Align::Start)
+            .action_name("win.view-channel")
+            .action_target(&comment.author_id.to_variant())
+            .css_classes(vec!["flat".to_string(), "circular".to_string()])
+            .build();
+        hbox.append(&avatar_btn);
 
         let vbox = gtk::Box::new(gtk::Orientation::Vertical, 6);
         hbox.append(&vbox);
@@ -198,13 +184,6 @@ impl VideoPage {
         comment_label.set_wrap(true);
         comment_label.set_wrap_mode(pango::WrapMode::WordChar);
         vbox.append(&comment_label);
-
-        let comment_clone = comment.clone();
-        glib::MainContext::default().spawn_local(async move {
-            avatar
-                .set_image_url(comment_clone.author_thumbnails.first().unwrap().url.clone())
-                .await;
-        });
 
         hbox.upcast()
     }

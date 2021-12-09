@@ -1,6 +1,6 @@
 use crate::glib_utils::RustedListModel;
-use crate::invidious::core::TrendingVideo;
-use crate::widgets::{Action, RemoteImage, VideoRow};
+use crate::invidious::core::{Channel, TrendingVideo};
+use crate::widgets::{RemoteImageExt, VideoRow};
 use crate::Client;
 use anyhow::anyhow;
 use gtk::glib;
@@ -29,7 +29,6 @@ mod imp {
         pub video_list: TemplateChild<gtk::ListBox>,
         pub video_list_model: RustedListModel<TrendingVideo>,
         pub client: OnceCell<Client>,
-        pub action_pusher: OnceCell<glib::Sender<Action>>,
     }
 
     impl Default for ChannelPage {
@@ -42,7 +41,6 @@ mod imp {
                 video_list: TemplateChild::default(),
                 video_list_model: RustedListModel::new(),
                 client: OnceCell::new(),
-                action_pusher: OnceCell::new(),
             }
         }
     }
@@ -73,12 +71,11 @@ glib::wrapper! {
 }
 
 impl ChannelPage {
-    pub fn new(client: Client, action_pusher: glib::Sender<Action>) -> Self {
+    pub fn new(client: Client) -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create ChannelPage");
 
         let self_ = obj.impl_();
         self_.client.set(client).unwrap();
-        self_.action_pusher.set(action_pusher).unwrap();
         obj.prepare_widgets();
         obj
     }
@@ -92,23 +89,18 @@ impl ChannelPage {
             .video_list_model
             .bind_to_list_box(&*self_.video_list, |v| VideoRow::new(v).upcast());
     }
-    async fn load_videos(&self, channel_id: String) -> anyhow::Result<()> {
+    pub fn set_channel(&self, channel: Channel) {
         let self_ = self.impl_();
-        let channel = self_
-            .client
-            .get()
-            .unwrap()
-            .channel(&channel_id)
-            .await
-            .map_err(|e| anyhow!(e))?;
-        self_
-            .author_avatar
-            .set_image_url(channel.author_thumbnails.last().unwrap().url.clone())
-            .await;
-        self_
-            .banner
-            .set_image_url(channel.author_banners.first().unwrap().url.clone())
-            .await;
+        channel
+            .author_thumbnails
+            .last()
+            .map(|image| self_.author_avatar.set_image_url(image.url.clone()));
+
+        channel
+            .author_banners
+            .first()
+            .map(|image| self_.banner.set_image_url(image.url.clone()));
+
         self_.author_name.set_label(&channel.author);
         self_
             .sub_count
@@ -117,12 +109,5 @@ impl ChannelPage {
         self_
             .video_list_model
             .extend(channel.latest_videos.into_iter());
-        Ok(())
-    }
-    pub fn set_channel(&self, channel_id: String) {
-        let cloned_self = self.clone();
-        glib::MainContext::default().spawn_local(async move {
-            cloned_self.load_videos(channel_id).await.unwrap();
-        });
     }
 }

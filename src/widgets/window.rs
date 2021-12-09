@@ -4,6 +4,7 @@ use crate::invidious::core::TrendingVideo;
 use crate::widgets::{ChannelPage, VideoPage, VideoRow};
 use crate::Client;
 use adw::subclass::prelude::*;
+use glib::clone;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
@@ -12,11 +13,6 @@ use log::warn;
 use once_cell::sync::OnceCell;
 use std::cell::Cell;
 use std::rc::Rc;
-
-pub enum Action {
-    ShowVideo(TrendingVideo),
-    ShowChannelByID(String),
-}
 
 mod imp {
     use super::*;
@@ -37,7 +33,6 @@ mod imp {
         pub video_list_model: RustedListModel<TrendingVideo>,
         pub settings: gio::Settings,
         pub client: OnceCell<Client>,
-        pub action_pusher: OnceCell<glib::Sender<Action>>,
     }
 
     impl Default for SharMaVidWindow {
@@ -50,7 +45,6 @@ mod imp {
                 video_list_model: RustedListModel::new(),
                 settings: gio::Settings::new(APP_ID),
                 client: OnceCell::new(),
-                action_pusher: OnceCell::new(),
             }
         }
     }
@@ -115,6 +109,7 @@ impl SharMaVidWindow {
         let self_ = obj.impl_();
         self_.client.set(client).unwrap();
 
+        obj.setup_actions();
         obj.setup_widgets();
         obj
     }
@@ -133,51 +128,68 @@ impl SharMaVidWindow {
 
         Ok(())
     }
+    pub fn setup_actions(&self) {
+        let back = gio::SimpleAction::new("back", None);
+        back.connect_activate(clone!(@strong self as this => move |_, _| this.back()));
+        self.add_action(&back);
+
+        let show_video = gio::SimpleAction::new("view-video", Some(glib::VariantTy::STRING));
+        show_video.connect_activate(clone!(@strong self as this => move |_, video_id| this.show_video(video_id.unwrap().get().unwrap())));
+        self.add_action(&show_video);
+
+        let show_channel = gio::SimpleAction::new("view-channel", Some(glib::VariantTy::STRING));
+        show_channel.connect_activate(clone!(@strong self as this => move |_, channel_id| this.show_channel(channel_id.unwrap().get().unwrap())));
+        self.add_action(&show_channel);
+    }
+    pub fn show_channel(&self, channel_id: String) {
+        let cloned_self = self.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let self_ = cloned_self.impl_();
+            let client = self_.client.get().unwrap();
+            let page = ChannelPage::new(client.clone());
+            self_.stack.add_child(&page);
+            self_.stack.set_visible_child(&page);
+            let channel = client.channel(&channel_id).await.unwrap();
+            page.set_channel(channel);
+        });
+    }
+    pub fn show_video(&self, video_id: String) {
+        let cloned_self = self.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let self_ = cloned_self.impl_();
+            let client = self_.client.get().unwrap();
+            let page = VideoPage::new(client.clone());
+            self_.stack.add_child(&page);
+            self_.stack.set_visible_child(&page);
+            let video = client.video(&video_id).await.unwrap();
+            page.set_video(video);
+            // TODO: Put this in a method .as_trending in invidious/core.rs
+            /*let trending_video = TrendingVideo {
+                title: video.title,
+                video_id: video.video_id,
+                author: video.author,
+                author_url: video.author_url,
+                author_id: video.author_id,
+                view_count: video.view_count,
+                video_thumbnails: video.video_thumbnails,
+                length_seconds: video.length_seconds,
+                published: video.published,
+                published_text: video.published_text,
+                description: Some(video.description),
+                description_html: Some(video.description_html),
+            };*/
+        });
+    }
     pub fn setup_widgets(&self) {
         let self_ = self.impl_();
         self_
             .video_list_model
             .bind_to_list_box(&*self_.video_list, move |v| VideoRow::new(v).upcast());
-
-        let cloned_self = self.clone();
-        self_.back_btn.connect_clicked(move |_| cloned_self.back());
-
-        let (sender, receiver) = glib::MainContext::channel(glib::PRIORITY_DEFAULT);
-        self_.action_pusher.set(sender).unwrap();
-
-        let action_pusher = self.action_pusher();
-        self_.video_list.connect_row_activated(move |_, row| {
-            let child: VideoRow = row.clone().downcast().unwrap();
-            action_pusher
-                .send(Action::ShowVideo(child.video()))
-                .unwrap();
-        });
-        let stack = self_.stack.clone();
-        let action_pusher = self.action_pusher();
-        let client = self_.client.get().unwrap().clone();
-        receiver.attach(None, move |action| {
-            match action {
-                Action::ShowVideo(v) => {
-                    let page = VideoPage::new(client.clone(), v, action_pusher.clone());
-                    stack.add_child(&page);
-                    stack.set_visible_child(&page);
-                }
-                Action::ShowChannelByID(c_id) => {
-                    let page = ChannelPage::new(client.clone(), action_pusher.clone());
-                    page.set_channel(c_id);
-                    stack.add_child(&page);
-                    stack.set_visible_child(&page);
-                }
-                _ => panic!("PANIC"),
-            }
-            Continue(true)
-        });
     }
 
     pub fn back(&self) {
         let self_ = self.impl_();
         let stack = &self_.stack;
-        stack.set_visible_child_name("home");
         let model = stack.pages();
         let n = model.n_items();
         let pages: [Option<gtk::Widget>; 2] = [
@@ -209,10 +221,6 @@ impl SharMaVidWindow {
             }
             _ => warn!("No pages to go back to"),
         }
-    }
-    pub fn action_pusher(&self) -> glib::Sender<Action> {
-        let self_ = self.impl_();
-        self_.action_pusher.get().unwrap().clone()
     }
     fn load_window_size(&self) {
         let self_ = self.impl_();

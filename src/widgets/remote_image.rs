@@ -5,8 +5,21 @@ use libadwaita as adw;
 use log::error;
 
 #[async_trait(?Send)]
-pub trait RemoteImage {
-    async fn set_image_url(&self, _url: String) {}
+pub trait RemoteImage: Clone {
+    async fn set_image_url_future(&self, _url: String) {}
+}
+
+pub trait RemoteImageExt: RemoteImage {
+    fn set_image_url(&self, url: String);
+}
+
+impl<T: 'static + RemoteImage> RemoteImageExt for T {
+    fn set_image_url(&self, url: String) {
+        let cloned_self: T = self.clone();
+        glib::MainContext::default().spawn_local(async move {
+            cloned_self.set_image_url_future(url).await;
+        });
+    }
 }
 
 async fn pixbuf_for_img(url: String) -> anyhow::Result<gdk_pixbuf::Pixbuf> {
@@ -23,7 +36,7 @@ async fn pixbuf_for_img(url: String) -> anyhow::Result<gdk_pixbuf::Pixbuf> {
 }
 #[async_trait(?Send)]
 impl RemoteImage for gtk::Picture {
-    async fn set_image_url(&self, url: String) {
+    async fn set_image_url_future(&self, url: String) {
         let pict = self.clone();
         match pixbuf_for_img(url).await {
             Ok(pixbuf) => {
@@ -35,10 +48,10 @@ impl RemoteImage for gtk::Picture {
 }
 #[async_trait(?Send)]
 impl RemoteImage for adw::Avatar {
-    async fn set_image_url(&self, url: String) {
+    async fn set_image_url_future(&self, url: String) {
         let avatar = self.clone();
         let pict = gtk::Picture::new();
-        pict.set_image_url(url).await;
+        pict.set_image_url_future(url).await;
         avatar.set_custom_image(pict.paintable().as_ref());
     }
 }
