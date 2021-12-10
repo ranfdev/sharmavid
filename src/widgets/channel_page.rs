@@ -87,7 +87,7 @@ impl ChannelPage {
         let self_ = self.impl_();
         self_
             .video_list_model
-            .bind_to_list_box(&*self_.video_list, |v| VideoRow::new(v).upcast());
+            .bind_to_list_box(&*self_.video_list, |v| VideoRow::new(v.clone()).upcast());
         self_.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
             row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()));

@@ -1,8 +1,7 @@
-use crate::glib_utils::AnyGobject;
+use crate::glib_utils::AnyGObject;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
-use log::warn;
 
 mod imp {
     use super::*;
@@ -96,14 +95,14 @@ impl<T: 'static + Clone> RustedListModel<T> {
     }
     pub fn add_item(&self, item: T) {
         self.list_model
-            .add_item(AnyGobject::new(Box::new(item)).upcast())
+            .add_item(AnyGObject::new(Box::new(item)).upcast())
     }
     pub fn clear(&self) {
         self.list_model.clear();
     }
     pub fn extend<I: Iterator<Item = T>>(&self, iter: I) {
         self.list_model
-            .extend(iter.map(|item| AnyGobject::new(Box::new(item)).upcast()));
+            .extend(iter.map(|item| AnyGObject::new(Box::new(item)).upcast()));
     }
     pub fn as_gio(&self) -> gio::ListModel {
         self.list_model.clone().upcast()
@@ -111,15 +110,14 @@ impl<T: 'static + Clone> RustedListModel<T> {
     pub fn bind_to_list_box<L: glib::object::IsA<gtk::ListBox>>(
         &self,
         list_box: &L,
-        bind_func: impl Fn(T) -> gtk::Widget + 'static,
+        bind_func: impl Fn(&T) -> gtk::Widget + 'static,
     ) {
         let list_box: gtk::ListBox = list_box.clone().upcast();
         list_box.bind_model(Some(&self.as_gio()), move |v|
                 bind_func(
-                    v.clone().downcast::<AnyGobject>()
+                    &v.clone().downcast::<AnyGObject>()
                         .expect("Couldn't downcast gobject to rust type. Check if the binded model is a RustedListModel")
-                        .item::<T>()
-                        .expect("Couldn't downcast gobject to rust type. Check if the binded model is a RustedListModel")
+                        .borrow::<T>()
                 ))
     }
 }

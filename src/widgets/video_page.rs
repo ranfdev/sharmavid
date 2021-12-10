@@ -106,7 +106,7 @@ impl VideoPage {
         self_.thumbnail.set_height_request(200);
         self_
             .comments_model
-            .bind_to_list_box(&*self_.comments_list, |c| Self::build_comment(c));
+            .bind_to_list_box(&*self_.comments_list, |c| Self::build_comment(c.clone()));
     }
     pub fn set_client(&self, client: Client) {
         let self_ = self.impl_();

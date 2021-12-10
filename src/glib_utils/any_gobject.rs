@@ -1,47 +1,50 @@
 use gtk::glib;
 use gtk::subclass::prelude::*;
-use std::cell::RefCell;
+use std::any::Any;
+use std::cell::{Ref, RefCell, RefMut};
 
 mod imp {
     use super::*;
 
     #[derive(Debug)]
-    pub struct AnyGobject {
-        pub item: RefCell<Box<dyn std::any::Any>>,
+    pub struct AnyGObject {
+        pub item: RefCell<Option<Box<dyn Any>>>,
     }
-    impl Default for AnyGobject {
+    impl Default for AnyGObject {
         fn default() -> Self {
-            let opt: Option<u8> = None;
             Self {
-                item: RefCell::new(Box::new(opt)),
+                item: RefCell::new(None),
             }
         }
     }
     #[glib::object_subclass]
-    impl ObjectSubclass for AnyGobject {
-        const NAME: &'static str = "AnyGobject";
-        type Type = super::AnyGobject;
+    impl ObjectSubclass for AnyGObject {
+        const NAME: &'static str = "AnyGObject";
+        type Type = super::AnyGObject;
         type ParentType = glib::Object;
     }
-    impl ObjectImpl for AnyGobject {}
+    impl ObjectImpl for AnyGObject {}
 }
 
 glib::wrapper! {
-    pub struct AnyGobject(ObjectSubclass<imp::AnyGobject>);
+    pub struct AnyGObject(ObjectSubclass<imp::AnyGObject>);
 }
 
-impl AnyGobject {
-    pub fn new(item: Box<dyn std::any::Any>) -> Self {
-        let obj: AnyGobject = glib::Object::new(&[]).expect("Failed to create AnyGobject");
+impl AnyGObject {
+    pub fn new(item: Box<dyn Any>) -> Self {
+        let obj: AnyGObject = glib::Object::new(&[]).expect("Failed to create AnyGObject");
 
-        *obj.impl_().item.borrow_mut() = item;
+        *obj.impl_().item.borrow_mut() = Some(item);
         obj
     }
-    pub fn item<T: 'static + Clone>(&self) -> Option<T> {
-        self.impl_()
-            .item
-            .borrow()
-            .downcast_ref::<T>()
-            .map(|item| item.clone())
+    pub fn borrow<'a, T: 'static>(&'a self) -> Ref<'a, T> {
+        Ref::map(self.impl_().item.borrow(), |item| {
+            item.as_ref().unwrap().downcast_ref::<T>().unwrap()
+        })
+    }
+    pub fn borrow_mut<'a, T: 'static>(&'a mut self) -> RefMut<'a, T> {
+        RefMut::map(self.impl_().item.borrow_mut(), |item| {
+            item.as_mut().unwrap().downcast_mut::<T>().unwrap()
+        })
     }
 }

@@ -3,6 +3,7 @@ use crate::glib_utils::RustedListModel;
 use crate::invidious::core::TrendingVideo;
 use crate::widgets::{ChannelPage, VideoPage, VideoRow};
 use crate::Client;
+use adw::prelude::*;
 use adw::subclass::prelude::*;
 use glib::clone;
 use gtk::prelude::*;
@@ -23,13 +24,12 @@ mod imp {
     #[template(resource = "/com/ranfdev/SharMaVid/ui/window.ui")]
     pub struct SharMaVidWindow {
         #[template_child]
-        pub headerbar: TemplateChild<gtk::HeaderBar>,
+        pub headerbar: TemplateChild<adw::HeaderBar>,
         #[template_child]
         pub video_list: TemplateChild<gtk::ListBox>,
         #[template_child]
-        pub stack: TemplateChild<gtk::Stack>,
-        #[template_child]
-        pub back_btn: TemplateChild<gtk::Button>,
+        pub stack: TemplateChild<adw::ViewStack>,
+
         pub video_list_model: RustedListModel<TrendingVideo>,
         pub settings: gio::Settings,
         pub client: OnceCell<Client>,
@@ -41,7 +41,7 @@ mod imp {
                 headerbar: TemplateChild::default(),
                 video_list: TemplateChild::default(),
                 stack: TemplateChild::default(),
-                back_btn: TemplateChild::default(),
+
                 video_list_model: RustedListModel::new(),
                 settings: gio::Settings::new(APP_ID),
                 client: OnceCell::new(),
@@ -147,7 +147,7 @@ impl SharMaVidWindow {
             let self_ = cloned_self.impl_();
             let client = self_.client.get().unwrap();
             let page = ChannelPage::new(client.clone());
-            self_.stack.add_child(&page);
+            self_.stack.add(&page);
             self_.stack.set_visible_child(&page);
             let channel = client.channel(&channel_id).await.unwrap();
             page.set_channel(channel);
@@ -159,7 +159,7 @@ impl SharMaVidWindow {
             let self_ = cloned_self.impl_();
             let client = self_.client.get().unwrap();
             let page = VideoPage::new(client.clone());
-            self_.stack.add_child(&page);
+            self_.stack.add(&page);
             self_.stack.set_visible_child(&page);
             let video = client.video(&video_id).await.unwrap();
             page.set_video(video);
@@ -184,7 +184,9 @@ impl SharMaVidWindow {
         let self_ = self.impl_();
         self_
             .video_list_model
-            .bind_to_list_box(&*self_.video_list, move |v| VideoRow::new(v).upcast());
+            .bind_to_list_box(&*self_.video_list, move |v| {
+                VideoRow::new(v.clone()).upcast()
+            });
         self_.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
             row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()));
@@ -192,9 +194,10 @@ impl SharMaVidWindow {
     }
 
     pub fn back(&self) {
-        let self_ = self.impl_();
+        /*let self_ = self.impl_();
         let stack = &self_.stack;
-        let model = stack.pages();
+        let model = stack.pages().unwrap();
+
         let n = model.n_items();
         let pages: [Option<gtk::Widget>; 2] = [
             model.item(n.overflowing_sub(2).0),
@@ -213,7 +216,7 @@ impl SharMaVidWindow {
                 let curr_page = curr_page.clone();
                 let signal_rc = Rc::new(Cell::new(None));
                 let cloned_signal_rc = signal_rc.clone();
-                signal_rc.set(Some(stack.connect_transition_running_notify({
+                signal_rc.set(Some(self_.stack.get().connect_transition_running_notify({
                     let stack = self_.stack.clone();
                     move |_| {
                         if !stack.is_transition_running() {
@@ -224,7 +227,7 @@ impl SharMaVidWindow {
                 })));
             }
             _ => warn!("No pages to go back to"),
-        }
+        }*/
     }
     fn load_window_size(&self) {
         let self_ = self.impl_();
