@@ -1,7 +1,7 @@
 use crate::config::{APP_ID, PROFILE};
-use crate::glib_utils::{RustedListStore, RustedListBox};
+use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::TrendingVideo;
-use crate::widgets::{ChannelPage, VideoPage, SearchPage, VideoRow};
+use crate::widgets::{ChannelPage, SearchPage, VideoPage, VideoRow};
 use crate::Client;
 use adw::subclass::prelude::*;
 use glib::clone;
@@ -141,7 +141,8 @@ impl SharMaVidWindow {
         self.add_action(&show_channel);
 
         let show_search = gio::SimpleAction::new("view-search", None);
-        show_search.connect_activate(clone!(@strong self as this => move |_, _| this.show_search()));
+        show_search
+            .connect_activate(clone!(@strong self as this => move |_, _| this.show_search()));
         self.add_action(&show_search);
     }
     pub fn show_channel(&self, channel_id: String) {
@@ -198,7 +199,8 @@ impl SharMaVidWindow {
             });
         self_.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
-            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant())).unwrap();
+            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
+                .unwrap();
         });
     }
 

@@ -1,4 +1,4 @@
-use crate::glib_utils::{RustedListStore, RustedListBox};
+use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{Channel, TrendingVideo};
 use crate::widgets::{RemoteImageExt, VideoRow};
 use crate::Client;
@@ -87,10 +87,13 @@ impl ChannelPage {
         let self_ = self.impl_();
         self_
             .video_list
-            .bind_rusted_model(&self_.video_list_model, |v| VideoRow::new(v.clone()).upcast());
+            .bind_rusted_model(&self_.video_list_model, |v| {
+                VideoRow::new(v.clone()).upcast()
+            });
         self_.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
-            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant())).unwrap();
+            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
+                .unwrap();
         });
     }
     pub fn set_channel(&self, channel: Channel) {

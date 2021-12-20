@@ -1,13 +1,13 @@
 mod channel_page;
 mod remote_image;
+mod search_page;
 mod thumbnail;
 mod video_page;
-mod search_page;
 mod video_row;
 mod window;
 pub use channel_page::*;
-pub use search_page::*;
 pub use remote_image::*;
+pub use search_page::*;
 pub use thumbnail::*;
 pub use video_page::*;
 pub use video_row::*;

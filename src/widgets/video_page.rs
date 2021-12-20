@@ -1,4 +1,4 @@
-use crate::glib_utils::{RustedListStore, RustedListBox};
+use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{Comment, FullVideo};
 use crate::widgets::{RemoteImageExt, Thumbnail};
 use crate::Client;
@@ -103,7 +103,8 @@ impl VideoPage {
         self_.video_player.append(&self_.thumbnail);
         self_.thumbnail.set_hexpand(true);
         self_.thumbnail.set_height_request(200);
-        self_.comments_list
+        self_
+            .comments_list
             .bind_rusted_model(&self_.comments_model, |c| Self::build_comment(c.clone()));
     }
     pub fn set_client(&self, client: Client) {
