@@ -15,6 +15,9 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 surf = "2.3.2"
 anyhow = "1.0.45"
-cap-directories = "0.21.1"
-cap-async-std = "0.21.1"
 async-trait = "0.1.51"
+thiserror = "1"
+
+[patch.crates-io]
+glib = {git = "https://github.com/gtk-rs/gtk-rs-core", package = "glib", version = "0.15.0"}
+gio = {git = "https://github.com/gtk-rs/gtk-rs-core", package = "gio"}

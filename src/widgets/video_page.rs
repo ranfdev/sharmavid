@@ -1,12 +1,11 @@
-use crate::glib_utils::RustedListModel;
-use crate::invidious::core::{Comment, FullVideo, TrendingVideo};
+use crate::glib_utils::{RustedListStore, RustedListBox};
+use crate::invidious::core::{Comment, FullVideo};
 use crate::widgets::{RemoteImageExt, Thumbnail};
 use crate::Client;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
 use libadwaita as adw;
-use log::info;
 use once_cell::sync::OnceCell;
 
 mod imp {
@@ -37,7 +36,7 @@ mod imp {
         pub description: TemplateChild<gtk::Label>,
         #[template_child]
         pub comments_list: TemplateChild<gtk::ListBox>,
-        pub comments_model: RustedListModel<Comment>,
+        pub comments_model: RustedListStore<Comment>,
         pub thumbnail: Thumbnail,
         #[template_child]
         pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
@@ -58,7 +57,7 @@ mod imp {
                 view_channel_btn: TemplateChild::default(),
                 description: TemplateChild::default(),
                 comments_list: TemplateChild::default(),
-                comments_model: RustedListModel::new(),
+                comments_model: RustedListStore::new(),
                 thumbnail: Thumbnail::new(None),
                 miniplayer_thumbnail: TemplateChild::default(),
                 video: OnceCell::default(),
@@ -104,9 +103,8 @@ impl VideoPage {
         self_.video_player.append(&self_.thumbnail);
         self_.thumbnail.set_hexpand(true);
         self_.thumbnail.set_height_request(200);
-        self_
-            .comments_model
-            .bind_to_list_box(&*self_.comments_list, |c| Self::build_comment(c.clone()));
+        self_.comments_list
+            .bind_rusted_model(&self_.comments_model, |c| Self::build_comment(c.clone()));
     }
     pub fn set_client(&self, client: Client) {
         let self_ = self.impl_();

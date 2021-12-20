@@ -40,6 +40,12 @@ impl Client {
     pub async fn video(&self, id: &str) -> surf::Result<FullVideo> {
         self.http.get(&format!("videos/{}", id)).recv_json().await
     }
+    pub async fn search(&self, query: &str) -> surf::Result<Vec<TrendingVideo>> {
+        self.http
+            .get(dbg!(&format!("search/q?={}", query)))
+            .recv_json()
+            .await
+    }
     pub fn base(&self) -> String {
         self.base.clone()
     }

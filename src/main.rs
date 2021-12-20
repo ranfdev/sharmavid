@@ -11,7 +11,9 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 use widgets::SharMaVidWindow;
 
+
 use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
+
 
 fn main() {
     // Initialize logger

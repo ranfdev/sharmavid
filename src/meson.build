@@ -19,17 +19,17 @@ run_command(
 )
 
 rust_sources = files(
-  'config.rs',
   'main.rs',
+  'config.rs',
   'widgets/window.rs',
   'widgets/video_row.rs',
   'widgets/thumbnail.rs',
   'widgets/video_page.rs',
   'widgets/channel_page.rs',
+  'widgets/search_page.rs',
   'widgets/remote_image.rs',
   'widgets/mod.rs',
   'glib_utils/any_list_model.rs',
-  'glib_utils/any_gobject.rs',
   'glib_utils/mod.rs',
   'invidious/core.rs',
   'invidious/client.rs',

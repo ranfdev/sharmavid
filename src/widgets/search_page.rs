@@ -7,6 +7,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use libadwaita as adw;
+use glib::clone;
 use once_cell::sync::OnceCell;
 
 mod imp {
@@ -15,40 +16,31 @@ mod imp {
     use gtk::CompositeTemplate;
 
     #[derive(Debug, CompositeTemplate)]
-    #[template(resource = "/com/ranfdev/SharMaVid/ui/channel_page.ui")]
-    pub struct ChannelPage {
-        #[template_child]
-        pub author_name: TemplateChild<gtk::Label>,
-        #[template_child]
-        pub author_avatar: TemplateChild<adw::Avatar>,
-        #[template_child]
-        pub banner: TemplateChild<gtk::Picture>,
-        #[template_child]
-        pub sub_count: TemplateChild<gtk::Label>,
+    #[template(resource = "/com/ranfdev/SharMaVid/ui/search_page.ui")]
+    pub struct SearchPage {
         #[template_child]
         pub video_list: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        pub search_entry: TemplateChild<gtk::SearchEntry>,
         pub video_list_model: RustedListStore<TrendingVideo>,
         pub client: OnceCell<Client>,
     }
 
-    impl Default for ChannelPage {
+    impl Default for SearchPage {
         fn default() -> Self {
             Self {
-                author_name: TemplateChild::default(),
-                author_avatar: TemplateChild::default(),
-                banner: TemplateChild::default(),
-                sub_count: TemplateChild::default(),
                 video_list: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
+                search_entry: TemplateChild::default(),
                 client: OnceCell::new(),
             }
         }
     }
 
     #[glib::object_subclass]
-    impl ObjectSubclass for ChannelPage {
-        const NAME: &'static str = "ChannelPage";
-        type Type = super::ChannelPage;
+    impl ObjectSubclass for SearchPage {
+        const NAME: &'static str = "SearchPage";
+        type Type = super::SearchPage;
         type ParentType = gtk::Box;
 
         fn class_init(klass: &mut Self::Class) {
@@ -60,19 +52,19 @@ mod imp {
             obj.init_template();
         }
     }
-    impl WidgetImpl for ChannelPage {}
-    impl ObjectImpl for ChannelPage {}
-    impl BoxImpl for ChannelPage {}
+    impl WidgetImpl for SearchPage {}
+    impl ObjectImpl for SearchPage {}
+    impl BoxImpl for SearchPage {}
 }
 
 glib::wrapper! {
-    pub struct ChannelPage(ObjectSubclass<imp::ChannelPage>)
+    pub struct SearchPage(ObjectSubclass<imp::SearchPage>)
         @extends gtk::Widget, gtk::Box;
 }
 
-impl ChannelPage {
+impl SearchPage {
     pub fn new(client: Client) -> Self {
-        let obj: Self = glib::Object::new(&[]).expect("Failed to create ChannelPage");
+        let obj: Self = glib::Object::new(&[]).expect("Failed to create SearchPage");
 
         let self_ = obj.impl_();
         self_.client.set(client).unwrap();
@@ -92,26 +84,16 @@ impl ChannelPage {
             let row: VideoRow = row.clone().downcast().unwrap();
             row.activate_action("win.view-video", Some(&row.video().video_id.to_variant())).unwrap();
         });
-    }
-    pub fn set_channel(&self, channel: Channel) {
-        let self_ = self.impl_();
-        channel
-            .author_thumbnails
-            .last()
-            .map(|image| self_.author_avatar.set_image_url(image.url.clone()));
-
-        channel
-            .author_banners
-            .first()
-            .map(|image| self_.banner.set_image_url(image.url.clone()));
-
-        self_.author_name.set_label(&channel.author);
-        self_
-            .sub_count
-            .set_label(&format!("{} subscribers", &channel.sub_count));
-        self_.video_list_model.clear();
-        self_
-            .video_list_model
-            .extend(channel.latest_videos.into_iter());
+        let client = self_.client.get().unwrap();
+        self_.search_entry.connect_search_changed(clone!(@strong client,
+            @strong self_.video_list_model as video_list_model => move |entry| {
+            let text = entry.text();
+            let client = client.clone();
+            let video_list_model = video_list_model.clone();
+            glib::MainContext::default().spawn_local(async move {
+                let res = client.search(&text).await.unwrap();
+                video_list_model.extend(res.into_iter());
+            });
+        }));
     }
 }

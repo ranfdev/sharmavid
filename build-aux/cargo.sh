@@ -17,4 +17,3 @@ else
         "$MESON_SOURCE_ROOT"/Cargo.toml --release && \
         cp "$CARGO_TARGET_DIR"/release/$5 $3
 fi
-

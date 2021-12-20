@@ -1,16 +1,14 @@
 use crate::config::{APP_ID, PROFILE};
-use crate::glib_utils::RustedListModel;
+use crate::glib_utils::{RustedListStore, RustedListBox};
 use crate::invidious::core::TrendingVideo;
-use crate::widgets::{ChannelPage, VideoPage, VideoRow};
+use crate::widgets::{ChannelPage, VideoPage, SearchPage, VideoRow};
 use crate::Client;
-use adw::prelude::*;
 use adw::subclass::prelude::*;
 use glib::clone;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita as adw;
-use log::warn;
 use once_cell::sync::OnceCell;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -29,8 +27,9 @@ mod imp {
         pub video_list: TemplateChild<gtk::ListBox>,
         #[template_child]
         pub stack: TemplateChild<adw::ViewStack>,
-
-        pub video_list_model: RustedListModel<TrendingVideo>,
+        #[template_child]
+        pub over_stack: TemplateChild<gtk::Stack>,
+        pub video_list_model: RustedListStore<TrendingVideo>,
         pub settings: gio::Settings,
         pub client: OnceCell<Client>,
     }
@@ -41,8 +40,8 @@ mod imp {
                 headerbar: TemplateChild::default(),
                 video_list: TemplateChild::default(),
                 stack: TemplateChild::default(),
-
-                video_list_model: RustedListModel::new(),
+                over_stack: TemplateChild::default(),
+                video_list_model: RustedListStore::new(),
                 settings: gio::Settings::new(APP_ID),
                 client: OnceCell::new(),
             }
@@ -140,6 +139,10 @@ impl SharMaVidWindow {
         let show_channel = gio::SimpleAction::new("view-channel", Some(glib::VariantTy::STRING));
         show_channel.connect_activate(clone!(@strong self as this => move |_, channel_id| this.show_channel(channel_id.unwrap().get().unwrap())));
         self.add_action(&show_channel);
+
+        let show_search = gio::SimpleAction::new("view-search", None);
+        show_search.connect_activate(clone!(@strong self as this => move |_, _| this.show_search()));
+        self.add_action(&show_search);
     }
     pub fn show_channel(&self, channel_id: String) {
         let cloned_self = self.clone();
@@ -180,23 +183,29 @@ impl SharMaVidWindow {
             };*/
         });
     }
+    pub fn show_search(&self) {
+        let self_ = self.impl_();
+        let search_page = SearchPage::new(self_.client.clone().get().unwrap().clone());
+        self_.over_stack.add_child(&search_page);
+        self_.over_stack.set_visible_child(&search_page);
+    }
     pub fn setup_widgets(&self) {
         let self_ = self.impl_();
         self_
-            .video_list_model
-            .bind_to_list_box(&*self_.video_list, move |v| {
+            .video_list
+            .bind_rusted_model(&self_.video_list_model, move |v| {
                 VideoRow::new(v.clone()).upcast()
             });
         self_.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
-            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()));
+            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant())).unwrap();
         });
     }
 
     pub fn back(&self) {
-        /*let self_ = self.impl_();
-        let stack = &self_.stack;
-        let model = stack.pages().unwrap();
+        let self_ = self.impl_();
+        let stack = self_.over_stack.clone();
+        let model = stack.pages();
 
         let n = model.n_items();
         let pages: [Option<gtk::Widget>; 2] = [
@@ -216,8 +225,8 @@ impl SharMaVidWindow {
                 let curr_page = curr_page.clone();
                 let signal_rc = Rc::new(Cell::new(None));
                 let cloned_signal_rc = signal_rc.clone();
-                signal_rc.set(Some(self_.stack.get().connect_transition_running_notify({
-                    let stack = self_.stack.clone();
+                signal_rc.set(Some(stack.connect_transition_running_notify({
+                    let stack = stack.clone();
                     move |_| {
                         if !stack.is_transition_running() {
                             stack.remove(&curr_page);
@@ -226,8 +235,8 @@ impl SharMaVidWindow {
                     }
                 })));
             }
-            _ => warn!("No pages to go back to"),
-        }*/
+            _ => panic!("No pages to go back to"),
+        }
     }
     fn load_window_size(&self) {
         let self_ = self.impl_();

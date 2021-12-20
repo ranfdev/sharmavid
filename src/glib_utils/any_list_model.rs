@@ -1,121 +1,53 @@
-use crate::glib_utils::AnyGObject;
 use gtk::prelude::*;
-use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
+use glib::BoxedAnyObject;
+use std::marker::PhantomData;
 
-mod imp {
-    use super::*;
-    use std::cell::RefCell;
-
-    #[derive(Debug, Default)]
-    pub struct AnyListModel {
-        pub vec: RefCell<Vec<glib::Object>>,
-    }
-
-    #[glib::object_subclass]
-    impl ObjectSubclass for AnyListModel {
-        const NAME: &'static str = "AnyListModel";
-        type ParentType = glib::Object;
-        type Type = super::AnyListModel;
-        type Interfaces = (gio::ListModel,);
-    }
-
-    impl ObjectImpl for AnyListModel {}
-
-    impl ListModelImpl for AnyListModel {
-        fn item_type(&self, _list_model: &Self::Type) -> glib::Type {
-            glib::Object::static_type()
-        }
-        fn n_items(&self, _list_model: &Self::Type) -> u32 {
-            self.vec.borrow().len() as u32
-        }
-        fn item(&self, _list_model: &Self::Type, position: u32) -> Option<glib::Object> {
-            self.vec
-                .borrow()
-                .get(position as usize)
-                .map(|o| o.clone().upcast::<glib::Object>())
-        }
-    }
-}
-
-glib::wrapper! {
-    pub struct AnyListModel(ObjectSubclass<imp::AnyListModel>) @implements gio::ListModel;
-}
-
-impl AnyListModel {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        glib::Object::new(&[]).unwrap()
-    }
-
-    pub fn add_item(&self, item: glib::Object) {
-        let self_ = self.impl_();
-
-        // Own scope to avoid "already mutably borrowed: BorrowError"
-        let pos = {
-            let mut data = self_.vec.borrow_mut();
-            data.push(item.clone());
-            (data.len() - 1) as u32
-        };
-
-        self.items_changed(pos, 0, 1);
-    }
-
-    pub fn clear(&self) {
-        let len = self.n_items();
-        self.impl_().vec.borrow_mut().clear();
-        self.items_changed(0, len, 0);
-    }
-    pub fn extend(&self, iter: impl Iterator<Item = glib::Object>) {
-        let self_ = self.impl_();
-
-        let (pos, c) = {
-            let mut data = self_.vec.borrow_mut();
-            let plen = data.len();
-            data.extend(iter);
-            (plen as u32, (data.len() - plen) as u32)
-        };
-        self.items_changed(pos, 0, c);
-    }
-}
 
 #[derive(Debug, Clone)]
-pub struct RustedListModel<T> {
-    list_model: AnyListModel,
-    phantom: std::marker::PhantomData<T>,
-}
+pub struct RustedListStore<T>(gio::ListStore, PhantomData<T>);
 
 // TODO: the Clone requirement could be relaxed and performance improved
-impl<T: 'static + Clone> RustedListModel<T> {
+impl<T: 'static + Clone> RustedListStore<T> {
     pub fn new() -> Self {
-        Self {
-            list_model: AnyListModel::new(),
-            phantom: std::marker::PhantomData,
-        }
+        Self(gio::ListStore::new(BoxedAnyObject::static_type()), std::marker::PhantomData)
     }
     pub fn add_item(&self, item: T) {
-        self.list_model
-            .add_item(AnyGObject::new(Box::new(item)).upcast())
+        self.0
+            .append(&BoxedAnyObject::new(item))
     }
     pub fn clear(&self) {
-        self.list_model.clear();
+        self.0.remove_all();
     }
     pub fn extend<I: Iterator<Item = T>>(&self, iter: I) {
-        self.list_model
-            .extend(iter.map(|item| AnyGObject::new(Box::new(item)).upcast()));
+        self.0.clone().extend(iter.map(BoxedAnyObject::new));
     }
-    pub fn as_gio(&self) -> gio::ListModel {
-        self.list_model.clone().upcast()
+}
+
+impl<T: Clone> std::ops::Deref for RustedListStore<T> {
+    type Target = gio::ListStore;
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
-    pub fn bind_to_list_box<L: glib::object::IsA<gtk::ListBox>>(
+}
+
+pub trait RustedListBox {
+    fn bind_rusted_model<T: 'static + Clone>(
         &self,
-        list_box: &L,
-        bind_func: impl Fn(&T) -> gtk::Widget + 'static,
+        store: &RustedListStore<T>,
+        bind_func: impl Fn(&T) -> gtk::Widget + 'static
+    );
+}
+
+impl RustedListBox for gtk::ListBox {
+    fn bind_rusted_model<T: 'static + Clone>(
+        &self,
+        store: &RustedListStore<T>,
+        bind_func: impl Fn(&T) -> gtk::Widget + 'static
     ) {
-        let list_box: gtk::ListBox = list_box.clone().upcast();
-        list_box.bind_model(Some(&self.as_gio()), move |v|
+        self.bind_model(Some(&**store), move |v|
                 bind_func(
-                    &v.clone().downcast::<AnyGObject>()
+                    &v.clone().downcast::<BoxedAnyObject>()
                         .expect("Couldn't downcast gobject to rust type. Check if the binded model is a RustedListModel")
                         .borrow::<T>()
                 ))
