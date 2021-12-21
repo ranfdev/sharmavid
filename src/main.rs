@@ -34,10 +34,8 @@ fn main() {
 
     let app = adw::Application::new(Some(config::APP_ID), gio::ApplicationFlags::FLAGS_NONE);
 
-    let client = Client::new("https://inv.riverside.rocks".to_string())
-        .expect("failed creating backend client");
     app.connect_activate(move |app| {
-        let win = SharMaVidWindow::new(&app, client.clone());
+        let win = SharMaVidWindow::new(&app);
         win.load_popular();
         win.present();
     });

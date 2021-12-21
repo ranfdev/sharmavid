@@ -1,4 +1,5 @@
 use crate::invidious::core::*;
+use once_cell::sync::Lazy;
 use surf::Url;
 
 #[derive(Clone, Debug)]
@@ -7,9 +8,11 @@ pub struct Client {
     base: String,
 }
 
+static INSTANCE: Lazy<Client> = Lazy::new(|| Client::default());
+
 impl Default for Client {
     fn default() -> Self {
-        Self::new("https://inv.riverside.rocks".to_string()).unwrap()
+        Client::new("https://inv.riverside.rocks".to_string()).unwrap()
     }
 }
 
@@ -21,6 +24,9 @@ impl Client {
                 .try_into()?,
             base,
         })
+    }
+    pub fn global() -> &'static Self {
+        &*INSTANCE
     }
     pub async fn popular(&self) -> surf::Result<Vec<TrendingVideo>> {
         self.http.get("popular").recv_json().await

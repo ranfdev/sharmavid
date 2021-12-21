@@ -1,13 +1,12 @@
 use crate::glib_utils::{RustedListBox, RustedListStore};
-use crate::invidious::core::{Channel, TrendingVideo};
-use crate::widgets::{RemoteImageExt, VideoRow};
+use crate::invidious::core::TrendingVideo;
+use crate::widgets::VideoRow;
 use crate::Client;
-use anyhow::anyhow;
+
 use glib::clone;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use libadwaita as adw;
 use once_cell::sync::OnceCell;
 
 mod imp {
@@ -23,7 +22,6 @@ mod imp {
         #[template_child]
         pub search_entry: TemplateChild<gtk::SearchEntry>,
         pub video_list_model: RustedListStore<TrendingVideo>,
-        pub client: OnceCell<Client>,
     }
 
     impl Default for SearchPage {
@@ -32,7 +30,6 @@ mod imp {
                 video_list: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
                 search_entry: TemplateChild::default(),
-                client: OnceCell::new(),
             }
         }
     }
@@ -63,17 +60,11 @@ glib::wrapper! {
 }
 
 impl SearchPage {
-    pub fn new(client: Client) -> Self {
+    pub fn new() -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create SearchPage");
 
-        let self_ = obj.impl_();
-        self_.client.set(client).unwrap();
         obj.prepare_widgets();
         obj
-    }
-    pub fn set_client(&self, client: Client) {
-        let self_ = self.impl_();
-        self_.client.set(client).unwrap();
     }
     fn prepare_widgets(&self) {
         let self_ = self.impl_();
@@ -87,18 +78,15 @@ impl SearchPage {
             row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
                 .unwrap();
         });
-        let client = self_.client.get().unwrap();
-        self_
-            .search_entry
-            .connect_search_changed(clone!(@strong client,
-                @strong self_.video_list_model as video_list_model => move |entry| {
+        self_.search_entry.connect_search_changed(
+            clone!(@strong self_.video_list_model as video_list_model => move |entry| {
                 let text = entry.text();
-                let client = client.clone();
                 let video_list_model = video_list_model.clone();
                 glib::MainContext::default().spawn_local(async move {
-                    let res = client.search(&text).await.unwrap();
+                    let res = Client::global().search(&text).await.unwrap();
                     video_list_model.extend(res.into_iter());
                 });
-            }));
+            }),
+        );
     }
 }

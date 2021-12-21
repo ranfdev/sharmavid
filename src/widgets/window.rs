@@ -31,7 +31,6 @@ mod imp {
         pub over_stack: TemplateChild<gtk::Stack>,
         pub video_list_model: RustedListStore<TrendingVideo>,
         pub settings: gio::Settings,
-        pub client: OnceCell<Client>,
     }
 
     impl Default for SharMaVidWindow {
@@ -43,7 +42,6 @@ mod imp {
                 over_stack: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
                 settings: gio::Settings::new(APP_ID),
-                client: OnceCell::new(),
             }
         }
     }
@@ -102,12 +100,9 @@ glib::wrapper! {
 }
 
 impl SharMaVidWindow {
-    pub fn new(app: &adw::Application, client: Client) -> Self {
+    pub fn new(app: &adw::Application) -> Self {
         let obj: Self =
             glib::Object::new(&[("application", app)]).expect("Failed to create SharMaVidWindow");
-        let self_ = obj.impl_();
-        self_.client.set(client).unwrap();
-
         obj.setup_actions();
         obj.setup_widgets();
         obj
@@ -149,11 +144,10 @@ impl SharMaVidWindow {
         let cloned_self = self.clone();
         glib::MainContext::default().spawn_local(async move {
             let self_ = cloned_self.impl_();
-            let client = self_.client.get().unwrap();
-            let page = ChannelPage::new(client.clone());
+            let page = ChannelPage::new();
             self_.stack.add(&page);
             self_.stack.set_visible_child(&page);
-            let channel = client.channel(&channel_id).await.unwrap();
+            let channel = Client::global().channel(&channel_id).await.unwrap();
             page.set_channel(channel);
         });
     }
@@ -161,11 +155,10 @@ impl SharMaVidWindow {
         let cloned_self = self.clone();
         glib::MainContext::default().spawn_local(async move {
             let self_ = cloned_self.impl_();
-            let client = self_.client.get().unwrap();
-            let page = VideoPage::new(client.clone());
+            let page = VideoPage::new();
             self_.stack.add(&page);
             self_.stack.set_visible_child(&page);
-            let video = client.video(&video_id).await.unwrap();
+            let video = Client::global().video(&video_id).await.unwrap();
             page.set_video(video);
             // TODO: Put this in a method .as_trending in invidious/core.rs
             /*let trending_video = TrendingVideo {
@@ -186,7 +179,7 @@ impl SharMaVidWindow {
     }
     pub fn show_search(&self) {
         let self_ = self.impl_();
-        let search_page = SearchPage::new(self_.client.clone().get().unwrap().clone());
+        let search_page = SearchPage::new();
         self_.over_stack.add_child(&search_page);
         self_.over_stack.set_visible_child(&search_page);
     }
@@ -256,10 +249,9 @@ impl SharMaVidWindow {
     pub fn load_popular(&self) {
         let self_ = self.impl_();
         let video_list_model = self_.video_list_model.clone();
-        let client = self_.client.get().unwrap().clone();
         glib::MainContext::default().spawn_local(async move {
             video_list_model.extend(
-                client
+                Client::global()
                     .popular()
                     .await
                     .map_or(vec![].into_iter(), |v| v.into_iter()),

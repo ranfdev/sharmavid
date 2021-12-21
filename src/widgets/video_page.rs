@@ -41,7 +41,6 @@ mod imp {
         #[template_child]
         pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
         pub video: OnceCell<FullVideo>,
-        pub client: OnceCell<Client>,
     }
 
     impl Default for VideoPage {
@@ -61,7 +60,6 @@ mod imp {
                 thumbnail: Thumbnail::new(None),
                 miniplayer_thumbnail: TemplateChild::default(),
                 video: OnceCell::default(),
-                client: OnceCell::default(),
             }
         }
     }
@@ -92,9 +90,8 @@ glib::wrapper! {
 }
 
 impl VideoPage {
-    pub fn new(client: Client) -> Self {
+    pub fn new() -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create VideoPage");
-        obj.set_client(client);
         obj.prepare_widgets();
         obj
     }
@@ -106,10 +103,6 @@ impl VideoPage {
         self_
             .comments_list
             .bind_rusted_model(&self_.comments_model, |c| Self::build_comment(c.clone()));
-    }
-    pub fn set_client(&self, client: Client) {
-        let self_ = self.impl_();
-        self_.client.set(client).unwrap();
     }
     pub(super) fn set_video(&self, mut video: FullVideo) {
         let self_ = self.impl_();
@@ -155,10 +148,9 @@ impl VideoPage {
 
         let video_id = video.video_id.clone();
         let comments_model = self_.comments_model.clone();
-        let client = self_.client.get().unwrap().clone();
         glib::MainContext::default().spawn_local_with_priority(glib::PRIORITY_LOW, async move {
             comments_model.clear();
-            let comments = client.comments(&video_id).await.unwrap();
+            let comments = Client::global().comments(&video_id).await.unwrap();
             comments_model.extend(comments.comments.into_iter());
         });
     }

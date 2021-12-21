@@ -28,7 +28,6 @@ mod imp {
         #[template_child]
         pub video_list: TemplateChild<gtk::ListBox>,
         pub video_list_model: RustedListStore<TrendingVideo>,
-        pub client: OnceCell<Client>,
     }
 
     impl Default for ChannelPage {
@@ -40,7 +39,6 @@ mod imp {
                 sub_count: TemplateChild::default(),
                 video_list: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
-                client: OnceCell::new(),
             }
         }
     }
@@ -71,17 +69,11 @@ glib::wrapper! {
 }
 
 impl ChannelPage {
-    pub fn new(client: Client) -> Self {
+    pub fn new() -> Self {
         let obj: Self = glib::Object::new(&[]).expect("Failed to create ChannelPage");
 
-        let self_ = obj.impl_();
-        self_.client.set(client).unwrap();
         obj.prepare_widgets();
         obj
-    }
-    pub fn set_client(&self, client: Client) {
-        let self_ = self.impl_();
-        self_.client.set(client).unwrap();
     }
     fn prepare_widgets(&self) {
         let self_ = self.impl_();
