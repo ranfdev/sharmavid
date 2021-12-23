@@ -1,3 +1,4 @@
+use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -27,7 +28,7 @@ pub struct AdaptiveFormat {
     //type: String,
     pub clen: String,
     pub lmt: String,
-    pub container: String,
+    pub container: Option<String>,
     pub encoding: String,
     pub quality_label: Option<String>,
     pub resolution: Option<String>,
@@ -121,4 +122,57 @@ pub struct Channel {
     pub allowed_regions: Vec<String>,
     pub latest_videos: Vec<TrendingVideo>,
     pub related_channels: Vec<BasicAuthor>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum SortBy {
+    Relevance,
+    Rating,
+    UploadDate,
+    ViewCount,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum DateQuery {
+    Hour,
+    Today,
+    Week,
+    Month,
+    Year,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum Duration {
+    Short,
+    Long,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchType {
+    Video,
+    Playlist,
+    Channel,
+    All,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Builder, Default)]
+#[serde(rename_all = "snake_case")]
+pub struct SearchParams {
+    pub query: String,
+    #[builder(default)]
+    pub page: Option<i32>,
+    #[builder(default)]
+    pub sort_by: Option<SortBy>,
+    #[builder(default)]
+    pub date: Option<DateQuery>,
+    #[builder(default)]
+    pub duration: Option<Duration>,
+    #[builder(default)]
+    #[serde(rename = "type")]
+    pub search_type: Option<SearchType>, // features: ...
+                                         // region: ...
 }

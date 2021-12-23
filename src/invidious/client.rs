@@ -1,5 +1,6 @@
 use crate::invidious::core::*;
 use once_cell::sync::Lazy;
+use serde::Serialize;
 use surf::Url;
 
 #[derive(Clone, Debug)]
@@ -46,9 +47,12 @@ impl Client {
     pub async fn video(&self, id: &str) -> surf::Result<FullVideo> {
         self.http.get(&format!("videos/{}", id)).recv_json().await
     }
-    pub async fn search(&self, query: &str) -> surf::Result<Vec<TrendingVideo>> {
+    pub async fn search(&self, query: SearchParams) -> surf::Result<Vec<TrendingVideo>> {
         self.http
-            .get(dbg!(&format!("search/q?={}", query)))
+            .get(&format!(
+                "search/?q={}",
+                serde_urlencoded::to_string(query).unwrap()
+            ))
             .recv_json()
             .await
     }
@@ -56,3 +60,5 @@ impl Client {
         self.base.clone()
     }
 }
+
+pub trait Paged<P, T> {}

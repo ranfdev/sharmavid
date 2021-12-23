@@ -1,13 +1,17 @@
+use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
-use crate::invidious::core::TrendingVideo;
+use crate::invidious::core::{SearchParams, TrendingVideo};
 use crate::widgets::VideoRow;
 use crate::Client;
 
+use futures::future;
+use futures::join;
+use futures::prelude::*;
 use glib::clone;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
-use once_cell::sync::OnceCell;
+use std::cell::RefCell;
 
 mod imp {
     use super::*;
@@ -21,7 +25,10 @@ mod imp {
         pub video_list: TemplateChild<gtk::ListBox>,
         #[template_child]
         pub search_entry: TemplateChild<gtk::SearchEntry>,
+        #[template_child]
+        pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub video_list_model: RustedListStore<TrendingVideo>,
+        pub search_params: RefCell<SearchParams>,
     }
 
     impl Default for SearchPage {
@@ -30,6 +37,8 @@ mod imp {
                 video_list: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
                 search_entry: TemplateChild::default(),
+                scrolled_window: TemplateChild::default(),
+                search_params: RefCell::new(SearchParams::default()),
             }
         }
     }
@@ -73,20 +82,47 @@ impl SearchPage {
             .bind_rusted_model(&self_.video_list_model, |v| {
                 VideoRow::new(v.clone()).upcast()
             });
-        self_.video_list.connect_row_activated(|_, row| {
-            let row: VideoRow = row.clone().downcast().unwrap();
-            row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
-                .unwrap();
+
+        let this = self.clone();
+        glib::MainContext::default().spawn_local(async move {
+            let self_ = this.impl_();
+
+            join!(
+                ev_stream!(self_.scrolled_window, edge_reached, win, edge)
+                    .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
+                    .zip(stream::iter(2..))
+                    .map(|(_, i)| {
+                        let mut params = self_.search_params.borrow().clone();
+                        params.page = Some(i);
+                        params
+                    })
+                    .filter_map(|p| Client::global().search(p).map(|res| res.ok()))
+                    .map(|res| self_.video_list_model.extend(res.into_iter()))
+                    .count(),
+                ev_stream!(self_.search_entry, search_changed, entry)
+                    .for_each(|_| this.handle_search_changed()),
+                ev_stream!(self_.video_list, row_activated, list, row)
+                    .for_each(|(_, row)| this.handle_row_activated(row))
+            );
         });
-        self_.search_entry.connect_search_changed(
-            clone!(@strong self_.video_list_model as video_list_model => move |entry| {
-                let text = entry.text();
-                let video_list_model = video_list_model.clone();
-                glib::MainContext::default().spawn_local(async move {
-                    let res = Client::global().search(&text).await.unwrap();
-                    video_list_model.extend(res.into_iter());
-                });
-            }),
-        );
+    }
+    async fn handle_search_changed(&self) {
+        let self_ = self.impl_();
+
+        let params = {
+            let mut params = self_.search_params.borrow_mut();
+            params.query = self_.search_entry.text().to_string();
+            params.page = None;
+            params.clone()
+        };
+
+        let res = Client::global().search(params).await.unwrap();
+        self_.video_list_model.clear();
+        self_.video_list_model.extend(res.into_iter());
+    }
+    async fn handle_row_activated(&self, row: gtk::ListBoxRow) {
+        let row: VideoRow = row.clone().downcast().unwrap();
+        row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
+            .unwrap()
     }
 }
