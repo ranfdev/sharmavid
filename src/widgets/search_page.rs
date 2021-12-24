@@ -1,16 +1,19 @@
-use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{SearchParams, TrendingVideo};
 use crate::widgets::VideoRow;
+use crate::{ev_stream, ev_stream_signalled};
 use crate::{Client, Paged};
 
+use futures::future::RemoteHandle;
 use futures::join;
 use futures::prelude::*;
 use futures::stream::Stream;
+use futures::task::LocalSpawnExt;
 use glib::clone;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use std::cell::Cell;
 use std::cell::RefCell;
 
 mod imp {
@@ -28,7 +31,6 @@ mod imp {
         #[template_child]
         pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub video_list_model: RustedListStore<TrendingVideo>,
-        pub results: RefCell<Paged<Vec<TrendingVideo>>>,
     }
 
     impl Default for SearchPage {
@@ -38,7 +40,6 @@ mod imp {
                 video_list_model: RustedListStore::new(),
                 search_entry: TemplateChild::default(),
                 scrolled_window: TemplateChild::default(),
-                results: RefCell::new(Box::pin(stream::empty())),
             }
         }
     }
@@ -88,29 +89,51 @@ impl SearchPage {
             let self_ = this.impl_();
 
             join!(
-                ev_stream!(self_.scrolled_window, edge_reached, |win, edge|)
-                    .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
-                    .filter_map(|_| async move { self_.results.borrow_mut().next().await })
-                    .filter_map(|res| future::ready(res.ok()))
-                    .map(|res: Vec<TrendingVideo>| self_.video_list_model.extend(res.into_iter()))
-                    .count(),
-                ev_stream!(self_.search_entry, search_changed, |entry|)
-                    .for_each(|_| this.handle_search_changed()),
-                ev_stream!(self_.video_list, row_activated, |list, row|)
-                    .for_each(|(_, row)| this.handle_row_activated(row))
+                ev_stream!(self_.search_entry, search_changed, |entry|).fold(
+                    None::<(glib::SignalHandlerId, RemoteHandle<()>)>,
+                    |s, _| {
+                        let this = this.clone();
+                        if let Some((signal_id, _handler)) = s {
+                            self_.scrolled_window.disconnect(signal_id);
+                        }
+                        future::ready(Some(this.handle_search_changed()))
+                    }
+                ),
+                ev_stream!(self_.video_list, row_activated, |_list, row| row.clone())
+                    .for_each(|row| this.handle_row_activated(row))
             );
         });
     }
-    async fn handle_search_changed(&self) {
+    fn handle_search_changed(&self) -> (glib::SignalHandlerId, RemoteHandle<()>) {
         let self_ = self.impl_();
+
+        self_.video_list_model.clear();
 
         let mut params = SearchParams::default();
         params.query = self_.search_entry.text().to_string();
 
-        *self_.results.borrow_mut() = Client::global().search(params);
-        self_.video_list_model.clear();
-        let vids = self_.results.borrow_mut().next().await.unwrap();
-        self_.video_list_model.extend(vids.unwrap().into_iter());
+        let (signal_id, event_stream) =
+            ev_stream_signalled!(self_.scrolled_window, edge_reached, |win, edge|);
+
+        let this = self.clone();
+        let handler = glib::MainContext::default()
+            .spawn_local_with_handle(async move {
+                let self_ = this.impl_();
+                let trigger = ();
+                stream::once(async { trigger }) // Do one initial fetch
+                    .chain(
+                        event_stream
+                            .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
+                            .map(|_| trigger),
+                    )
+                    .zip(Client::global().search(params))
+                    .filter_map(|(_, res)| future::ready(res.ok()))
+                    .map(|res: Vec<TrendingVideo>| self_.video_list_model.extend(res.into_iter()))
+                    .count()
+                    .await;
+            })
+            .unwrap();
+        (signal_id, handler)
     }
     async fn handle_row_activated(&self, row: gtk::ListBoxRow) {
         let row: VideoRow = row.clone().downcast().unwrap();

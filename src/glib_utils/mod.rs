@@ -8,7 +8,7 @@ macro_rules! ev_stream_signalled {
             let (s, r) = futures::channel::mpsc::unbounded();
             let signal_id = paste::expr!($this.[<connect_ $event>](move |$($x,)*| {
                 let args = $cloning_body;
-                s.unbounded_send(args).unwrap();
+                s.unbounded_send(args).expect("sending value in ev_stream");
             }));
             (signal_id, r)
         }
