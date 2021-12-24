@@ -2,11 +2,11 @@ use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{SearchParams, TrendingVideo};
 use crate::widgets::VideoRow;
-use crate::Client;
+use crate::{Client, Paged};
 
-use futures::future;
 use futures::join;
 use futures::prelude::*;
+use futures::stream::Stream;
 use glib::clone;
 use gtk::glib;
 use gtk::prelude::*;
@@ -18,7 +18,7 @@ mod imp {
 
     use gtk::CompositeTemplate;
 
-    #[derive(Debug, CompositeTemplate)]
+    #[derive(CompositeTemplate)]
     #[template(resource = "/com/ranfdev/SharMaVid/ui/search_page.ui")]
     pub struct SearchPage {
         #[template_child]
@@ -28,7 +28,7 @@ mod imp {
         #[template_child]
         pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub video_list_model: RustedListStore<TrendingVideo>,
-        pub search_params: RefCell<SearchParams>,
+        pub results: RefCell<Paged<Vec<TrendingVideo>>>,
     }
 
     impl Default for SearchPage {
@@ -38,7 +38,7 @@ mod imp {
                 video_list_model: RustedListStore::new(),
                 search_entry: TemplateChild::default(),
                 scrolled_window: TemplateChild::default(),
-                search_params: RefCell::new(SearchParams::default()),
+                results: RefCell::new(Box::pin(stream::empty())),
             }
         }
     }
@@ -88,20 +88,15 @@ impl SearchPage {
             let self_ = this.impl_();
 
             join!(
-                ev_stream!(self_.scrolled_window, edge_reached, win, edge)
+                ev_stream!(self_.scrolled_window, edge_reached, |win, edge|)
                     .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
-                    .zip(stream::iter(2..))
-                    .map(|(_, i)| {
-                        let mut params = self_.search_params.borrow().clone();
-                        params.page = Some(i);
-                        params
-                    })
-                    .filter_map(|p| Client::global().search(p).map(|res| res.ok()))
-                    .map(|res| self_.video_list_model.extend(res.into_iter()))
+                    .filter_map(|_| async move { self_.results.borrow_mut().next().await })
+                    .filter_map(|res| future::ready(res.ok()))
+                    .map(|res: Vec<TrendingVideo>| self_.video_list_model.extend(res.into_iter()))
                     .count(),
-                ev_stream!(self_.search_entry, search_changed, entry)
+                ev_stream!(self_.search_entry, search_changed, |entry|)
                     .for_each(|_| this.handle_search_changed()),
-                ev_stream!(self_.video_list, row_activated, list, row)
+                ev_stream!(self_.video_list, row_activated, |list, row|)
                     .for_each(|(_, row)| this.handle_row_activated(row))
             );
         });
@@ -109,16 +104,13 @@ impl SearchPage {
     async fn handle_search_changed(&self) {
         let self_ = self.impl_();
 
-        let params = {
-            let mut params = self_.search_params.borrow_mut();
-            params.query = self_.search_entry.text().to_string();
-            params.page = None;
-            params.clone()
-        };
+        let mut params = SearchParams::default();
+        params.query = self_.search_entry.text().to_string();
 
-        let res = Client::global().search(params).await.unwrap();
+        *self_.results.borrow_mut() = Client::global().search(params);
         self_.video_list_model.clear();
-        self_.video_list_model.extend(res.into_iter());
+        let vids = self_.results.borrow_mut().next().await.unwrap();
+        self_.video_list_model.extend(vids.unwrap().into_iter());
     }
     async fn handle_row_activated(&self, row: gtk::ListBoxRow) {
         let row: VideoRow = row.clone().downcast().unwrap();

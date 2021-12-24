@@ -6,7 +6,7 @@ mod widgets;
 
 use gettextrs::{gettext, LocaleCategory};
 use gtk::{gdk, gio, glib};
-pub use invidious::client::Client;
+pub use invidious::client::{Client, Paged};
 use libadwaita as adw;
 use libadwaita::prelude::*;
 use widgets::SharMaVidWindow;

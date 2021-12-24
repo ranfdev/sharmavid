@@ -1,9 +1,12 @@
 use crate::config::{APP_ID, PROFILE};
+use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::TrendingVideo;
 use crate::widgets::{ChannelPage, SearchPage, VideoPage, VideoRow};
 use crate::Client;
 use adw::subclass::prelude::*;
+use futures::join;
+use futures::prelude::*;
 use glib::clone;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -124,60 +127,65 @@ impl SharMaVidWindow {
     }
     pub fn setup_actions(&self) {
         let back = gio::SimpleAction::new("back", None);
-        back.connect_activate(clone!(@strong self as this => move |_, _| this.back()));
         self.add_action(&back);
-
         let show_video = gio::SimpleAction::new("view-video", Some(glib::VariantTy::STRING));
-        show_video.connect_activate(clone!(@strong self as this => move |_, video_id| this.show_video(video_id.unwrap().get().unwrap())));
         self.add_action(&show_video);
-
         let show_channel = gio::SimpleAction::new("view-channel", Some(glib::VariantTy::STRING));
-        show_channel.connect_activate(clone!(@strong self as this => move |_, channel_id| this.show_channel(channel_id.unwrap().get().unwrap())));
         self.add_action(&show_channel);
-
         let show_search = gio::SimpleAction::new("view-search", None);
-        show_search
-            .connect_activate(clone!(@strong self as this => move |_, _| this.show_search()));
         self.add_action(&show_search);
-    }
-    pub fn show_channel(&self, channel_id: String) {
-        let cloned_self = self.clone();
+
+        let this = self.clone();
         glib::MainContext::default().spawn_local(async move {
-            let self_ = cloned_self.impl_();
-            let page = ChannelPage::new();
-            self_.stack.add(&page);
-            self_.stack.set_visible_child(&page);
-            let channel = Client::global().channel(&channel_id).await.unwrap();
-            page.set_channel(channel);
+            join!(
+                ev_stream!(show_search, activate, |_target, data| data.cloned())
+                    .for_each(|_| this.show_search()),
+                ev_stream!(show_channel, activate, |_target, channel_id| channel_id
+                    .unwrap()
+                    .get()
+                    .unwrap())
+                .for_each(|id| this.show_channel(id)),
+                ev_stream!(show_video, activate, |_target, video_id| video_id
+                    .unwrap()
+                    .get()
+                    .unwrap())
+                .for_each(|id| this.show_video(id)),
+                ev_stream!(back, activate, |_target, _data| ()).for_each(|_| this.back())
+            );
         });
     }
-    pub fn show_video(&self, video_id: String) {
-        let cloned_self = self.clone();
-        glib::MainContext::default().spawn_local(async move {
-            let self_ = cloned_self.impl_();
-            let page = VideoPage::new();
-            self_.stack.add(&page);
-            self_.stack.set_visible_child(&page);
-            let video = Client::global().video(&video_id).await.unwrap();
-            page.set_video(video);
-            // TODO: Put this in a method .as_trending in invidious/core.rs
-            /*let trending_video = TrendingVideo {
-                title: video.title,
-                video_id: video.video_id,
-                author: video.author,
-                author_url: video.author_url,
-                author_id: video.author_id,
-                view_count: video.view_count,
-                video_thumbnails: video.video_thumbnails,
-                length_seconds: video.length_seconds,
-                published: video.published,
-                published_text: video.published_text,
-                description: Some(video.description),
-                description_html: Some(video.description_html),
-            };*/
-        });
+    pub async fn show_channel(&self, channel_id: String) {
+        let self_ = self.impl_();
+        let page = ChannelPage::new();
+        self_.stack.add(&page);
+        self_.stack.set_visible_child(&page);
+        let channel = Client::global().channel(&channel_id).await.unwrap();
+        page.set_channel(channel);
     }
-    pub fn show_search(&self) {
+    pub async fn show_video(&self, video_id: String) {
+        let self_ = self.impl_();
+        let page = VideoPage::new();
+        self_.stack.add(&page);
+        self_.stack.set_visible_child(&page);
+        let video = Client::global().video(&video_id).await.unwrap();
+        page.set_video(video);
+        // TODO: Put this in a method .as_trending in invidious/core.rs
+        /*let trending_video = TrendingVideo {
+            title: video.title,
+            video_id: video.video_id,
+            author: video.author,
+            author_url: video.author_url,
+            author_id: video.author_id,
+            view_count: video.view_count,
+            video_thumbnails: video.video_thumbnails,
+            length_seconds: video.length_seconds,
+            published: video.published,
+            published_text: video.published_text,
+            description: Some(video.description),
+            description_html: Some(video.description_html),
+        };*/
+    }
+    pub async fn show_search(&self) {
         let self_ = self.impl_();
         let search_page = SearchPage::new();
         self_.over_stack.add_child(&search_page);
@@ -197,7 +205,7 @@ impl SharMaVidWindow {
         });
     }
 
-    pub fn back(&self) {
+    pub async fn back(&self) {
         let self_ = self.impl_();
         let stack = self_.over_stack.clone();
         let model = stack.pages();

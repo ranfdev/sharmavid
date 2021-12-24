@@ -176,3 +176,14 @@ pub struct SearchParams {
     pub search_type: Option<SearchType>, // features: ...
                                          // region: ...
 }
+
+pub trait PagedParam {
+    fn succ(self) -> Self;
+}
+
+impl PagedParam for SearchParams {
+    fn succ(mut self) -> Self {
+        self.page = Some(self.page.map_or(2, |n| n + 1));
+        self
+    }
+}
