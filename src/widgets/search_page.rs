@@ -1,7 +1,7 @@
+use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{SearchParams, TrendingVideo};
 use crate::widgets::VideoRow;
-use crate::{ev_stream, ev_stream_signalled};
 use crate::{Client, Paged};
 
 use futures::future::RemoteHandle;
@@ -13,6 +13,7 @@ use glib::clone;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use once_cell::unsync::OnceCell;
 use std::cell::Cell;
 use std::cell::RefCell;
 
@@ -31,6 +32,7 @@ mod imp {
         #[template_child]
         pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub video_list_model: RustedListStore<TrendingVideo>,
+        pub async_handle: OnceCell<Option<RemoteHandle<()>>>,
     }
 
     impl Default for SearchPage {
@@ -40,6 +42,7 @@ mod imp {
                 video_list_model: RustedListStore::new(),
                 search_entry: TemplateChild::default(),
                 scrolled_window: TemplateChild::default(),
+                async_handle: OnceCell::new(),
             }
         }
     }
@@ -85,26 +88,22 @@ impl SearchPage {
             });
 
         let this = self.clone();
-        glib::MainContext::default().spawn_local(async move {
-            let self_ = this.impl_();
-
-            join!(
-                ev_stream!(self_.search_entry, search_changed, |entry|).fold(
-                    None::<(glib::SignalHandlerId, RemoteHandle<()>)>,
-                    |s, _| {
-                        let this = this.clone();
-                        if let Some((signal_id, _handler)) = s {
-                            self_.scrolled_window.disconnect(signal_id);
-                        }
-                        future::ready(Some(this.handle_search_changed()))
-                    }
-                ),
-                ev_stream!(self_.video_list, row_activated, |_list, row| row.clone())
-                    .for_each(|row| this.handle_row_activated(row))
-            );
-        });
+        let handle = glib::MainContext::default()
+            .spawn_local_with_handle(async move {
+                let self_ = this.impl_();
+                join!(
+                    ev_stream!(self_.search_entry, search_changed, |entry|)
+                        .fold(None::<RemoteHandle<()>>, |_, _| {
+                            this.handle_search_changed()
+                        }),
+                    ev_stream!(self_.video_list, row_activated, |_list, row| row.clone())
+                        .for_each(|row| this.handle_row_activated(row)),
+                );
+            })
+            .ok();
+        self_.async_handle.set(handle).unwrap();
     }
-    fn handle_search_changed(&self) -> (glib::SignalHandlerId, RemoteHandle<()>) {
+    async fn handle_search_changed(&self) -> Option<RemoteHandle<()>> {
         let self_ = self.impl_();
 
         self_.video_list_model.clear();
@@ -112,8 +111,7 @@ impl SearchPage {
         let mut params = SearchParams::default();
         params.query = self_.search_entry.text().to_string();
 
-        let (signal_id, event_stream) =
-            ev_stream_signalled!(self_.scrolled_window, edge_reached, |win, edge|);
+        let event_stream = ev_stream!(self_.scrolled_window, edge_reached, |win, edge|);
 
         let this = self.clone();
         let handler = glib::MainContext::default()
@@ -132,8 +130,8 @@ impl SearchPage {
                     .count()
                     .await;
             })
-            .unwrap();
-        (signal_id, handler)
+            .ok();
+        handler
     }
     async fn handle_row_activated(&self, row: gtk::ListBoxRow) {
         let row: VideoRow = row.clone().downcast().unwrap();

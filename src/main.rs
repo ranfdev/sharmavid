@@ -5,6 +5,7 @@ mod invidious;
 mod widgets;
 
 use gettextrs::{gettext, LocaleCategory};
+pub use glib_utils::EvStream;
 use gtk::{gdk, gio, glib};
 pub use invidious::client::{Client, Paged};
 use libadwaita as adw;
