@@ -1,3 +1,4 @@
+use crate::ctx;
 use crate::widgets::RemoteImage;
 use gtk::glib;
 use gtk::prelude::*;
@@ -70,12 +71,9 @@ impl Thumbnail {
         let img = self_.img.clone();
         let stack = self_.stack.clone();
         stack.set_visible_child_name("placeholder");
-        glib::MainContext::default().spawn_local_with_priority(
-            glib::source::PRIORITY_LOW,
-            async move {
-                img.set_image_url_future(href).await;
-                stack.set_visible_child_name("img");
-            },
-        );
+        ctx().spawn_local_with_priority(glib::source::PRIORITY_LOW, async move {
+            img.set_image_url_future(href).await;
+            stack.set_visible_child_name("img");
+        });
     }
 }

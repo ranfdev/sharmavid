@@ -1,7 +1,7 @@
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{Comment, FullVideo};
 use crate::widgets::{RemoteImageExt, Thumbnail};
-use crate::Client;
+use crate::{ctx, Client};
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
@@ -148,7 +148,7 @@ impl VideoPage {
 
         let video_id = video.video_id.clone();
         let comments_model = self_.comments_model.clone();
-        glib::MainContext::default().spawn_local_with_priority(glib::PRIORITY_LOW, async move {
+        ctx().spawn_local_with_priority(glib::PRIORITY_LOW, async move {
             comments_model.clear();
             let comments = Client::global().comments(&video_id).await.unwrap();
             comments_model.extend(comments.comments.into_iter());

@@ -2,7 +2,7 @@ use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{SearchParams, TrendingVideo};
 use crate::widgets::VideoRow;
-use crate::{Client, Paged};
+use crate::{ctx, Client, Paged};
 
 use futures::future::RemoteHandle;
 use futures::join;
@@ -14,8 +14,6 @@ use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use once_cell::unsync::OnceCell;
-use std::cell::Cell;
-use std::cell::RefCell;
 
 mod imp {
     use super::*;
@@ -91,14 +89,14 @@ impl SearchPage {
         let row_activated_evs =
             ev_stream!(self_.video_list, row_activated, |_list, row| row.clone());
 
-        let this = self.clone().downgrade();
-        let handle = glib::MainContext::default()
+        let this = self.downgrade();
+        let handle = ctx()
             .spawn_local_with_handle(async move {
                 join!(
                     search_changed_evs.fold(None::<RemoteHandle<()>>, |_, _| {
                         Self::handle_search_changed(&this)
                     }),
-                    row_activated_evs.for_each(|row| Self::handle_row_activated(row))
+                    row_activated_evs.for_each(Self::handle_row_activated),
                 );
             })
             .ok();
@@ -128,9 +126,7 @@ impl SearchPage {
                 future::ready(video_list_model.extend(res.into_iter()))
             });
 
-        let handler = glib::MainContext::default()
-            .spawn_local_with_handle(event_stream)
-            .ok();
+        let handler = ctx().spawn_local_with_handle(event_stream).ok();
         handler
     }
     async fn handle_row_activated(row: gtk::ListBoxRow) {

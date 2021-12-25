@@ -4,6 +4,7 @@ mod glib_utils;
 mod invidious;
 mod widgets;
 
+use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 use gettextrs::{gettext, LocaleCategory};
 pub use glib_utils::EvStream;
 use gtk::{gdk, gio, glib};
@@ -12,7 +13,9 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 use widgets::SharMaVidWindow;
 
-use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
+pub fn ctx() -> glib::MainContext {
+    glib::MainContext::default()
+}
 
 fn main() {
     // Initialize logger

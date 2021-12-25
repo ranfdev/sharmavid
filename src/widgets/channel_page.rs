@@ -1,8 +1,6 @@
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{Channel, TrendingVideo};
 use crate::widgets::{RemoteImageExt, VideoRow};
-use crate::Client;
-use anyhow::anyhow;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
