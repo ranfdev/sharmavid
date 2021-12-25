@@ -87,24 +87,26 @@ impl SearchPage {
                 VideoRow::new(v.clone()).upcast()
             });
 
-        let this = self.clone();
+        let search_changed_evs = ev_stream!(self_.search_entry, search_changed, |entry|);
+        let row_activated_evs =
+            ev_stream!(self_.video_list, row_activated, |_list, row| row.clone());
+
+        let this = self.clone().downgrade();
         let handle = glib::MainContext::default()
             .spawn_local_with_handle(async move {
-                let self_ = this.impl_();
                 join!(
-                    ev_stream!(self_.search_entry, search_changed, |entry|)
-                        .fold(None::<RemoteHandle<()>>, |_, _| {
-                            this.handle_search_changed()
-                        }),
-                    ev_stream!(self_.video_list, row_activated, |_list, row| row.clone())
-                        .for_each(|row| this.handle_row_activated(row)),
+                    search_changed_evs.fold(None::<RemoteHandle<()>>, |_, _| {
+                        Self::handle_search_changed(&this)
+                    }),
+                    row_activated_evs.for_each(|row| Self::handle_row_activated(row))
                 );
             })
             .ok();
         self_.async_handle.set(handle).unwrap();
     }
-    async fn handle_search_changed(&self) -> Option<RemoteHandle<()>> {
-        let self_ = self.impl_();
+    async fn handle_search_changed(this: &glib::WeakRef<Self>) -> Option<RemoteHandle<()>> {
+        let this = this.upgrade().unwrap();
+        let self_ = this.impl_();
 
         self_.video_list_model.clear();
 
@@ -113,27 +115,25 @@ impl SearchPage {
 
         let event_stream = ev_stream!(self_.scrolled_window, edge_reached, |win, edge|);
 
-        let this = self.clone();
+        let video_list_model = self_.video_list_model.clone();
+        let event_stream = stream::once(async { () }) // Do one initial fetch
+            .chain(
+                event_stream
+                    .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
+                    .map(|_| ()),
+            )
+            .zip(Client::global().search(params))
+            .filter_map(|(_, res)| future::ready(res.ok()))
+            .for_each(move |res: Vec<TrendingVideo>| {
+                future::ready(video_list_model.extend(res.into_iter()))
+            });
+
         let handler = glib::MainContext::default()
-            .spawn_local_with_handle(async move {
-                let self_ = this.impl_();
-                let trigger = ();
-                stream::once(async { trigger }) // Do one initial fetch
-                    .chain(
-                        event_stream
-                            .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
-                            .map(|_| trigger),
-                    )
-                    .zip(Client::global().search(params))
-                    .filter_map(|(_, res)| future::ready(res.ok()))
-                    .map(|res: Vec<TrendingVideo>| self_.video_list_model.extend(res.into_iter()))
-                    .count()
-                    .await;
-            })
+            .spawn_local_with_handle(event_stream)
             .ok();
         handler
     }
-    async fn handle_row_activated(&self, row: gtk::ListBoxRow) {
+    async fn handle_row_activated(row: gtk::ListBoxRow) {
         let row: VideoRow = row.clone().downcast().unwrap();
         row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
             .unwrap()
