@@ -2,14 +2,12 @@ use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{SearchParams, TrendingVideo};
 use crate::widgets::VideoRow;
-use crate::{ctx, Client, Paged};
+use crate::{ctx, Client};
 
 use futures::future::RemoteHandle;
 use futures::join;
 use futures::prelude::*;
-use futures::stream::Stream;
 use futures::task::LocalSpawnExt;
-use glib::clone;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
@@ -126,8 +124,7 @@ impl SearchPage {
                 future::ready(video_list_model.extend(res.into_iter()))
             });
 
-        let handler = ctx().spawn_local_with_handle(event_stream).ok();
-        handler
+        ctx().spawn_local_with_handle(event_stream).ok()
     }
     async fn handle_row_activated(row: gtk::ListBoxRow) {
         let row: VideoRow = row.clone().downcast().unwrap();
