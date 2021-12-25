@@ -208,23 +208,17 @@ impl SharMaVidWindow {
     pub async fn back(&self) {
         let self_ = self.impl_();
         let stack = self_.over_stack.clone();
-        let model = stack.pages();
 
-        let n = model.n_items();
-        let pages: [Option<gtk::Widget>; 2] = [
-            model.item(n.overflowing_sub(2).0),
-            model.item(n.overflowing_sub(1).0),
-        ]
-        .map(|page| {
-            page.map(|p| {
-                p.downcast::<gtk::StackPage>()
-                    .expect("Not a gtk::StackPage")
-                    .child()
-            })
-        });
+        let pages = &stack
+            .pages()
+            .snapshot()
+            .into_iter()
+            .flat_map(|obj| obj.clone().downcast::<gtk::StackPage>().ok())
+            .map(|obj| obj.child())
+            .collect::<Vec<gtk::Widget>>()[..];
         match pages {
-            [Some(prev_page), Some(curr_page)] => {
-                stack.set_visible_child(&prev_page);
+            [.., prev_page, curr_page] => {
+                stack.set_visible_child(prev_page);
                 let curr_page = curr_page.clone();
                 let signal_rc = Rc::new(Cell::new(None));
                 let cloned_signal_rc = signal_rc.clone();
@@ -238,7 +232,7 @@ impl SharMaVidWindow {
                     }
                 })));
             }
-            _ => panic!("No pages to go back to"),
+            _ => log::warn!("No pages to go back to"),
         }
     }
     fn load_window_size(&self) {
