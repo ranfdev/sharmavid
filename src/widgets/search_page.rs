@@ -1,6 +1,6 @@
 use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
-use crate::invidious::core::{SearchParams, TrendingVideo};
+use crate::invidious::core::{SearchParams, SortBy, TrendingVideo};
 use crate::widgets::VideoRow;
 use crate::{ctx, Client};
 
@@ -114,6 +114,7 @@ impl SearchPage {
 
         let mut params = SearchParams::default();
         params.query = self_.search_entry.text().to_string();
+        params.sort_by = Some(SortBy::Relevance);
 
         let event_stream = ev_stream!(self_.scrolled_window, edge_reached, |win, edge|);
 

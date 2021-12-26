@@ -133,6 +133,8 @@ impl SharMaVidWindow {
         self.add_action(&show_video);
         let minimize_video = gio::SimpleAction::new("minimize-video", None);
         self.add_action(&minimize_video);
+        let unminimize_video = gio::SimpleAction::new("unminimize-video", None);
+        self.add_action(&unminimize_video);
         let show_channel = gio::SimpleAction::new("view-channel", Some(glib::VariantTy::STRING));
         self.add_action(&show_channel);
         let show_search = gio::SimpleAction::new("view-search", None);
@@ -155,6 +157,8 @@ impl SharMaVidWindow {
                 .for_each(|id| this.show_video(id)),
                 ev_stream!(minimize_video, activate, |_target, data| data.cloned())
                     .for_each(|_| future::ready(this.minimize_video())),
+                ev_stream!(unminimize_video, activate, |_target, data| data.cloned())
+                    .for_each(|_| future::ready(this.unminimize_video())),
                 ev_stream!(back, activate, |_target, _data| ()).for_each(|_| this.back())
             );
         });
@@ -193,6 +197,10 @@ impl SharMaVidWindow {
             description: Some(video.description),
             description_html: Some(video.description_html),
         };*/
+    }
+    pub fn unminimize_video(&self) {
+        let self_ = self.impl_();
+        self_.video_page.unminimize();
     }
     pub fn minimize_video(&self) {
         let self_ = self.impl_();

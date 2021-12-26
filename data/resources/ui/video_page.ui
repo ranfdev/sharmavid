@@ -9,9 +9,10 @@
           <object class="GtkStackPage">
             <property name="name">miniplayer</property>
             <property name="child">
-              <object class="GtkBox">
+              <object class="GtkBox" id="miniplayer">
                 <style>
-                  <class name="view"/>
+                  <class name="card"/>
+                  <class name="activatable"/>
                 </style>
                 <property name="valign">end</property>
                 <property name="spacing">8</property>
@@ -23,8 +24,9 @@
                 </child>
                 <child>
                   <object class="GtkBox">
-                    <property name="margin-top">8</property>
-                    <property name="margin-bottom">8</property>
+                    <property name="margin-top">4</property>
+                    <property name="margin-bottom">4</property>
+                    <property name="valign">center</property>
                     <property name="orientation">vertical</property>
                     <property name="spacing">4</property>
 

@@ -49,6 +49,8 @@ mod imp {
         pub thumbnail: Thumbnail,
         #[template_child]
         pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
+        #[template_child]
+        pub miniplayer: TemplateChild<gtk::Box>,
         pub video: RefCell<Option<FullVideo>>,
         pub async_handle: RefCell<Option<future::RemoteHandle<()>>>,
     }
@@ -71,6 +73,7 @@ mod imp {
                 comments_model: RustedListStore::new(),
                 thumbnail: Thumbnail::new(None),
                 miniplayer_thumbnail: TemplateChild::default(),
+                miniplayer: TemplateChild::default(),
                 video: RefCell::default(),
                 async_handle: RefCell::default(),
             }
@@ -142,6 +145,16 @@ impl VideoPage {
             None
         });
         self_.thumbnail.add_controller(&ev_controller);
+
+        let ev_controller = gtk::GestureClick::new();
+        let miniplayer = self_.miniplayer.clone();
+        ev_controller.connect_local("pressed", false, move |_| {
+            miniplayer
+                .activate_action("win.unminimize-video", None)
+                .unwrap();
+            None
+        });
+        self_.miniplayer.add_controller(&ev_controller);
     }
     pub(super) fn set_video(&self, mut video: FullVideo) {
         let self_ = self.impl_();
