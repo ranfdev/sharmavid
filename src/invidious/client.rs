@@ -37,11 +37,25 @@ impl Client {
     pub async fn popular(&self) -> surf::Result<Vec<TrendingVideo>> {
         self.http.get("popular").recv_json().await
     }
-    pub async fn comments(&self, video_id: &str) -> surf::Result<Comments> {
-        self.http
-            .get(&format!("comments/{}", video_id))
-            .recv_json()
-            .await
+    pub fn comments(&self, params: CommentsParams) -> Paged<Comments> {
+        let this = self.clone();
+        stream::unfold(None, move |continuation| {
+            let this = this.clone();
+            let params = params.clone();
+            async move {
+                let res = this
+                    .http
+                    .get(&format!("comments/{}", params.video_id))
+                    .recv_json()
+                    .await;
+                let continuation = res
+                    .as_ref()
+                    .ok()
+                    .map(|comments: &Comments| comments.continuation.clone());
+                Some((res, continuation))
+            }
+        })
+        .boxed()
     }
     pub async fn channel(&self, channel_id: &str) -> surf::Result<Channel> {
         self.http
@@ -54,20 +68,22 @@ impl Client {
     }
     pub fn search(&self, query: SearchParams) -> Paged<Vec<TrendingVideo>> {
         let this = self.clone();
-        Box::pin(stream::unfold(query, move |state| {
+        stream::unfold(query.page.unwrap_or(1), move |state| {
             let this = this.clone();
+            let params = query.clone();
             async move {
                 let res: surf::Result<Vec<TrendingVideo>> = this
                     .http
                     .get(&format!(
                         "search/?q={}",
-                        serde_urlencoded::to_string(&state).unwrap()
+                        serde_urlencoded::to_string(&params).unwrap()
                     ))
                     .recv_json()
                     .await;
-                Some((res, state.succ()))
+                Some((res, state + 1))
             }
-        }))
+        })
+        .boxed()
     }
     pub fn base(&self) -> String {
         self.base.clone()

@@ -42,7 +42,6 @@ impl<T> futures::stream::Stream for EvStream<T> {
 
 impl<T> std::ops::Drop for EvStream<T> {
     fn drop(&mut self) {
-        dbg!("disconnected");
         self.object
             .upgrade()
             .map(|obj| obj.disconnect(self.signal_id.take().unwrap()));

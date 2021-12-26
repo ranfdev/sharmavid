@@ -55,7 +55,7 @@
           <object class="GtkStackPage">
             <property name="name">fullpage</property>
             <property name="child">
-              <object class="GtkScrolledWindow">
+              <object class="GtkScrolledWindow" id="scrolled_window">
                 <style>
                   <class name="background"/>
                 </style>

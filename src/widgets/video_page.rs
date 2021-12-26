@@ -1,7 +1,10 @@
+use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
-use crate::invidious::core::{Comment, FullVideo};
+use crate::invidious::core::{Comment, CommentsParams, FullVideo};
 use crate::widgets::{RemoteImageExt, Thumbnail};
 use crate::{ctx, Client};
+use futures::prelude::*;
+use futures::task::LocalSpawnExt;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
@@ -36,11 +39,14 @@ mod imp {
         pub description: TemplateChild<gtk::Label>,
         #[template_child]
         pub comments_list: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub comments_model: RustedListStore<Comment>,
         pub thumbnail: Thumbnail,
         #[template_child]
         pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
         pub video: OnceCell<FullVideo>,
+        pub async_handle: OnceCell<Option<future::RemoteHandle<()>>>,
     }
 
     impl Default for VideoPage {
@@ -56,10 +62,12 @@ mod imp {
                 view_channel_btn: TemplateChild::default(),
                 description: TemplateChild::default(),
                 comments_list: TemplateChild::default(),
+                scrolled_window: TemplateChild::default(),
                 comments_model: RustedListStore::new(),
                 thumbnail: Thumbnail::new(None),
                 miniplayer_thumbnail: TemplateChild::default(),
                 video: OnceCell::default(),
+                async_handle: OnceCell::default(),
             }
         }
     }
@@ -148,11 +156,22 @@ impl VideoPage {
 
         let video_id = video.video_id.clone();
         let comments_model = self_.comments_model.clone();
-        ctx().spawn_local_with_priority(glib::PRIORITY_LOW, async move {
-            comments_model.clear();
-            let comments = Client::global().comments(&video_id).await.unwrap();
-            comments_model.extend(comments.comments.into_iter());
+
+        let mut comments_params = CommentsParams::default();
+        comments_params.video_id = video_id;
+        let edge_reached_evs = ev_stream!(self_.scrolled_window, edge_reached, |target, edge|)
+            .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
+            .map(|_| ());
+        let comments_stream = stream::once(async move { () })
+            .chain(edge_reached_evs)
+            .zip(Client::global().comments(comments_params))
+            .filter_map(|(_, c)| future::ready(c.ok()));
+        let side_effect = comments_stream.for_each(move |comments| {
+            future::ready(comments_model.extend(comments.comments.into_iter()))
         });
+
+        let handle = ctx().spawn_local_with_handle(side_effect).ok();
+        self_.async_handle.set(handle).unwrap();
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);

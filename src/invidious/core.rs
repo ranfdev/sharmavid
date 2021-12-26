@@ -160,7 +160,6 @@ pub enum SearchType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Builder, Default)]
-#[serde(rename_all = "snake_case")]
 pub struct SearchParams {
     pub query: String,
     #[builder(default)]
@@ -177,13 +176,20 @@ pub struct SearchParams {
                                          // region: ...
 }
 
-pub trait PagedParam {
-    fn succ(self) -> Self;
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum CommentsSortBy {
+    Top,
+    New,
 }
-
-impl PagedParam for SearchParams {
-    fn succ(mut self) -> Self {
-        self.page = Some(self.page.map_or(2, |n| n + 1));
-        self
-    }
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum CommentsSource {
+    Youtube,
+    Reddit,
+}
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct CommentsParams {
+    pub video_id: String,
+    pub sort_by: Option<CommentsSortBy>,
+    pub source: Option<CommentsSource>,
+    pub continuation: Option<String>,
 }
