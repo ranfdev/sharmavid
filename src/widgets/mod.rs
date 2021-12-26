@@ -1,4 +1,5 @@
 mod channel_page;
+mod mini_player;
 mod remote_image;
 mod search_page;
 mod thumbnail;
@@ -6,6 +7,7 @@ mod video_page;
 mod video_row;
 mod window;
 pub use channel_page::*;
+pub use mini_player::*;
 pub use remote_image::*;
 pub use search_page::*;
 pub use thumbnail::*;

@@ -1,7 +1,7 @@
 use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{Comment, CommentsParams, FullVideo};
-use crate::widgets::{RemoteImageExt, Thumbnail};
+use crate::widgets::{MiniPlayer, RemoteImageExt, Thumbnail};
 use crate::{ctx, Client};
 use futures::prelude::*;
 use futures::task::LocalSpawnExt;
@@ -23,15 +23,11 @@ mod imp {
         #[template_child]
         pub title: TemplateChild<gtk::Label>,
         #[template_child]
-        pub miniplayer_title: TemplateChild<gtk::Label>,
-        #[template_child]
         pub views_plus_time: TemplateChild<gtk::Label>,
         #[template_child]
         pub video_player: TemplateChild<gtk::Box>,
         #[template_child]
         pub author_name: TemplateChild<gtk::Label>,
-        #[template_child]
-        pub miniplayer_author: TemplateChild<gtk::Label>,
         #[template_child]
         pub author_avatar: TemplateChild<adw::Avatar>,
         #[template_child]
@@ -40,17 +36,11 @@ mod imp {
         pub description: TemplateChild<gtk::Label>,
         #[template_child]
         pub comments_list: TemplateChild<gtk::ListBox>,
-        #[template_child]
-        pub stack: TemplateChild<gtk::Stack>,
 
         #[template_child]
         pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub comments_model: RustedListStore<Comment>,
         pub thumbnail: Thumbnail,
-        #[template_child]
-        pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
-        #[template_child]
-        pub miniplayer: TemplateChild<gtk::Box>,
         pub video: RefCell<Option<FullVideo>>,
         pub async_handle: RefCell<Option<future::RemoteHandle<()>>>,
     }
@@ -59,21 +49,17 @@ mod imp {
         fn default() -> Self {
             Self {
                 title: TemplateChild::default(),
-                miniplayer_title: TemplateChild::default(),
                 views_plus_time: TemplateChild::default(),
                 video_player: TemplateChild::default(),
                 author_name: TemplateChild::default(),
-                miniplayer_author: TemplateChild::default(),
                 author_avatar: TemplateChild::default(),
                 view_channel_btn: TemplateChild::default(),
                 description: TemplateChild::default(),
                 comments_list: TemplateChild::default(),
                 scrolled_window: TemplateChild::default(),
-                stack: TemplateChild::default(),
+
                 comments_model: RustedListStore::new(),
                 thumbnail: Thumbnail::new(None),
-                miniplayer_thumbnail: TemplateChild::default(),
-                miniplayer: TemplateChild::default(),
                 video: RefCell::default(),
                 async_handle: RefCell::default(),
             }
@@ -147,20 +133,12 @@ impl VideoPage {
         self_.thumbnail.add_controller(&ev_controller);
 
         let ev_controller = gtk::GestureClick::new();
-        let miniplayer = self_.miniplayer.clone();
-        ev_controller.connect_local("pressed", false, move |_| {
-            miniplayer
-                .activate_action("win.unminimize-video", None)
-                .unwrap();
-            None
-        });
-        self_.miniplayer.add_controller(&ev_controller);
     }
     pub(super) fn set_video(&self, mut video: FullVideo) {
         let self_ = self.impl_();
         self_.video.replace(Some(video.clone()));
         self_.title.set_label(&video.title);
-        self_.miniplayer_title.set_label(&video.title);
+
         self_
             .views_plus_time
             .set_label(&format!("{} views · {}", video.view_count, video.published));
@@ -177,11 +155,7 @@ impl VideoPage {
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
         let best_thumbnail = video.video_thumbnails.last().unwrap();
         self_.thumbnail.set_href(best_thumbnail.url.clone());
-        self_
-            .miniplayer_thumbnail
-            .set_href(best_thumbnail.url.clone());
 
-        self_.miniplayer_author.set_label(&video.author);
         self_.author_name.set_label(&video.author);
 
         self_
@@ -206,20 +180,6 @@ impl VideoPage {
 
         let handle = ctx().spawn_local_with_handle(comments_loading_effect).ok();
         self_.async_handle.replace(handle);
-    }
-    pub fn unminimize(&self) {
-        let self_ = self.impl_();
-        self.set_valign(gtk::Align::Fill);
-        self_.stack.set_visible_child_name("fullpage");
-    }
-    pub fn minimize(&self) {
-        let self_ = self.impl_();
-        self_.stack.set_visible_child_name("miniplayer");
-        let this = self.downgrade();
-        glib::source::timeout_add_local(std::time::Duration::from_millis(150), move || {
-            this.upgrade().map(|this| this.set_valign(gtk::Align::End));
-            Continue(false)
-        });
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);

@@ -25,6 +25,7 @@ rust_sources = files(
   'widgets/video_row.rs',
   'widgets/thumbnail.rs',
   'widgets/video_page.rs',
+  'widgets/mini_player.rs',
   'widgets/channel_page.rs',
   'widgets/search_page.rs',
   'widgets/remote_image.rs',

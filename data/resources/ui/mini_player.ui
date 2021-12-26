@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="MiniPlayer" parent="GtkBox">
+    <style>
+      <class name="card"/>
+      <class name="activatable"/>
+    </style>
+    <property name="valign">end</property>
+    <property name="spacing">8</property>
+    <!-- Floating miniplayer -->
+    <child>
+      <object class="Thumbnail" id="thumbnail">
+        <property name="width-request">100</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox">
+        <property name="margin-top">4</property>
+        <property name="margin-bottom">4</property>
+        <property name="valign">center</property>
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkLabel" id="title">
+            <style>
+              <class name="heading"/>
+            </style>
+            <property name="wrap-mode" translatable="yes">word-char</property>
+            <property name="wrap" translatable="yes">true</property>
+            <property name="label">Video Title</property>
+            <property name="halign">start</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkLabel" id="author_name">
+            <property name="wrap-mode" translatable="yes">word-char</property>
+            <property name="wrap" translatable="yes">true</property>
+            <property name="label">Author</property>
+            <property name="halign">start</property>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>

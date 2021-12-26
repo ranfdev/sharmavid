@@ -2,7 +2,7 @@ use crate::config::{APP_ID, PROFILE};
 use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::TrendingVideo;
-use crate::widgets::{ChannelPage, SearchPage, VideoPage, VideoRow};
+use crate::widgets::{ChannelPage, MiniPlayer, SearchPage, VideoPage, VideoRow};
 use crate::Client;
 use adw::subclass::prelude::*;
 use futures::join;
@@ -31,7 +31,13 @@ mod imp {
         #[template_child]
         pub over_stack: TemplateChild<gtk::Stack>,
         #[template_child]
+        pub video_over_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
+        pub mini_player: TemplateChild<MiniPlayer>,
+        #[template_child]
         pub video_page: TemplateChild<VideoPage>,
+        #[template_child]
+        pub overlay: TemplateChild<gtk::Overlay>,
         pub video_list_model: RustedListStore<TrendingVideo>,
         pub settings: gio::Settings,
     }
@@ -43,7 +49,10 @@ mod imp {
                 video_list: TemplateChild::default(),
                 stack: TemplateChild::default(),
                 over_stack: TemplateChild::default(),
+                video_over_stack: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
+                mini_player: TemplateChild::default(),
+                overlay: TemplateChild::default(),
                 video_page: TemplateChild::default(),
                 settings: gio::Settings::new(APP_ID),
             }
@@ -174,11 +183,13 @@ impl SharMaVidWindow {
     }
     pub async fn show_video(&self, video_id: String) {
         let self_ = self.impl_();
-        self_.video_page.unminimize();
+        self.unminimize_video();
         let video = Client::global().video(&video_id).await.unwrap();
         let video_page = self_.video_page.clone();
+        let mp = self_.mini_player.clone();
         glib::source::idle_add_local(move || {
             video_page.set_video(video.clone());
+            mp.set_video(video.clone());
             Continue(false)
         });
 
@@ -200,11 +211,11 @@ impl SharMaVidWindow {
     }
     pub fn unminimize_video(&self) {
         let self_ = self.impl_();
-        self_.video_page.unminimize();
+        self_.video_over_stack.set_visible_child(&*self_.video_page);
     }
     pub fn minimize_video(&self) {
         let self_ = self.impl_();
-        self_.video_page.minimize();
+        self_.video_over_stack.set_visible_child(&*self_.overlay);
     }
     pub async fn show_search(&self) {
         let self_ = self.impl_();
