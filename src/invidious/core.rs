@@ -161,6 +161,7 @@ pub enum SearchType {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Builder, Default)]
 pub struct SearchParams {
+    #[serde(rename = "q")]
     pub query: String,
     #[builder(default)]
     pub page: Option<i32>,
@@ -188,7 +189,6 @@ pub enum CommentsSource {
 }
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CommentsParams {
-    pub video_id: String,
     pub sort_by: Option<CommentsSortBy>,
     pub source: Option<CommentsSource>,
     pub continuation: Option<String>,

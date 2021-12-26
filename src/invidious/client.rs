@@ -37,24 +37,32 @@ impl Client {
     pub async fn popular(&self) -> surf::Result<Vec<TrendingVideo>> {
         self.http.get("popular").recv_json().await
     }
-    pub fn comments(&self, params: CommentsParams) -> Paged<Comments> {
+    pub fn comments(&self, video_id: String, params: CommentsParams) -> Paged<Comments> {
         let this = self.clone();
-        stream::unfold(None, move |continuation| {
-            let this = this.clone();
-            let params = params.clone();
-            async move {
-                let res = this
-                    .http
-                    .get(&format!("comments/{}", params.video_id))
-                    .recv_json()
-                    .await;
-                let continuation = res
-                    .as_ref()
-                    .ok()
-                    .map(|comments: &Comments| comments.continuation.clone());
-                Some((res, continuation))
-            }
-        })
+        stream::unfold(
+            params.continuation.clone(),
+            move |continuation: Option<String>| {
+                let this = this.clone();
+                let mut params = params.clone();
+                params.continuation = continuation;
+                let video_id = video_id.clone();
+                async move {
+                    let url = &format!(
+                        "comments/{}?{}",
+                        video_id,
+                        serde_urlencoded::to_string(&params).unwrap()
+                    );
+                    log::info!("fetching {}", url);
+                    let res = this.http.get(url).recv_json().await;
+                    let continuation = res
+                        .as_ref()
+                        .ok()
+                        .map(|comments: &Comments| comments.continuation.clone())
+                        .flatten();
+                    Some((res, continuation))
+                }
+            },
+        )
         .boxed()
     }
     pub async fn channel(&self, channel_id: &str) -> surf::Result<Channel> {
@@ -70,16 +78,12 @@ impl Client {
         let this = self.clone();
         stream::unfold(query.page.unwrap_or(1), move |state| {
             let this = this.clone();
-            let params = query.clone();
+            let mut params = query.clone();
+            params.page = Some(state);
             async move {
-                let res: surf::Result<Vec<TrendingVideo>> = this
-                    .http
-                    .get(&format!(
-                        "search/?q={}",
-                        serde_urlencoded::to_string(&params).unwrap()
-                    ))
-                    .recv_json()
-                    .await;
+                let url = &format!("search/?{}", serde_urlencoded::to_string(&params).unwrap());
+                log::info!("fetching {}", url);
+                let res: surf::Result<Vec<TrendingVideo>> = this.http.get(url).recv_json().await;
                 Some((res, state + 1))
             }
         })

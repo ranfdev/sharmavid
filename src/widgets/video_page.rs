@@ -192,14 +192,13 @@ impl VideoPage {
         let comments_model = self_.comments_model.clone();
 
         self_.comments_model.clear();
-        let mut comments_params = CommentsParams::default();
-        comments_params.video_id = video_id;
+        let comments_params = CommentsParams::default();
         let edge_reached_evs = ev_stream!(self_.scrolled_window, edge_reached, |target, edge|)
             .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
             .map(|_| ());
         let comments_stream = stream::once(async move { () })
             .chain(edge_reached_evs)
-            .zip(Client::global().comments(comments_params))
+            .zip(Client::global().comments(video_id, comments_params))
             .filter_map(|(_, c)| future::ready(c.ok()));
         let comments_loading_effect = comments_stream.for_each(move |comments| {
             future::ready(comments_model.extend(comments.comments.into_iter()))
