@@ -7,12 +7,10 @@ use crate::Client;
 use adw::subclass::prelude::*;
 use futures::join;
 use futures::prelude::*;
-use glib::clone;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gio, glib};
 use libadwaita as adw;
-use once_cell::sync::OnceCell;
 use std::cell::Cell;
 use std::rc::Rc;
 

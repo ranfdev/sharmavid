@@ -77,6 +77,7 @@ impl SearchPage {
     }
     fn prepare_widgets(&self) {
         let self_ = self.impl_();
+
         self_
             .video_list
             .bind_rusted_model(&self_.video_list_model, |v| {
@@ -99,6 +100,11 @@ impl SearchPage {
             })
             .ok();
         self_.async_handle.set(handle).unwrap();
+        let search_entry = self_.search_entry.clone();
+        glib::source::idle_add_local(move || {
+            search_entry.grab_focus();
+            Continue(false)
+        });
     }
     async fn handle_search_changed(this: &glib::WeakRef<Self>) -> Option<RemoteHandle<()>> {
         let this = this.upgrade().unwrap();
