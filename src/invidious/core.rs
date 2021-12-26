@@ -29,7 +29,7 @@ pub struct AdaptiveFormat {
     pub clen: String,
     pub lmt: String,
     pub container: Option<String>,
-    pub encoding: String,
+    pub encoding: Option<String>,
     pub quality_label: Option<String>,
     pub resolution: Option<String>,
 }

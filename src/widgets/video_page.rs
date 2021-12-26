@@ -10,6 +10,7 @@ use gtk::subclass::prelude::*;
 use gtk::{glib, pango};
 use libadwaita as adw;
 use once_cell::sync::OnceCell;
+use std::cell::RefCell;
 
 mod imp {
     use super::*;
@@ -40,13 +41,16 @@ mod imp {
         #[template_child]
         pub comments_list: TemplateChild<gtk::ListBox>,
         #[template_child]
+        pub stack: TemplateChild<gtk::Stack>,
+
+        #[template_child]
         pub scrolled_window: TemplateChild<gtk::ScrolledWindow>,
         pub comments_model: RustedListStore<Comment>,
         pub thumbnail: Thumbnail,
         #[template_child]
         pub miniplayer_thumbnail: TemplateChild<Thumbnail>,
-        pub video: OnceCell<FullVideo>,
-        pub async_handle: OnceCell<Option<future::RemoteHandle<()>>>,
+        pub video: RefCell<Option<FullVideo>>,
+        pub async_handle: RefCell<Option<future::RemoteHandle<()>>>,
     }
 
     impl Default for VideoPage {
@@ -63,11 +67,12 @@ mod imp {
                 description: TemplateChild::default(),
                 comments_list: TemplateChild::default(),
                 scrolled_window: TemplateChild::default(),
+                stack: TemplateChild::default(),
                 comments_model: RustedListStore::new(),
                 thumbnail: Thumbnail::new(None),
                 miniplayer_thumbnail: TemplateChild::default(),
-                video: OnceCell::default(),
-                async_handle: OnceCell::default(),
+                video: RefCell::default(),
+                async_handle: RefCell::default(),
             }
         }
     }
@@ -88,7 +93,12 @@ mod imp {
         }
     }
     impl WidgetImpl for VideoPage {}
-    impl ObjectImpl for VideoPage {}
+    impl ObjectImpl for VideoPage {
+        fn constructed(&self, obj: &Self::Type) {
+            self.parent_constructed(obj);
+            obj.prepare_widgets();
+        }
+    }
     impl BoxImpl for VideoPage {}
 }
 
@@ -99,9 +109,7 @@ glib::wrapper! {
 
 impl VideoPage {
     pub fn new() -> Self {
-        let obj: Self = glib::Object::new(&[]).expect("Failed to create VideoPage");
-        obj.prepare_widgets();
-        obj
+        glib::Object::new(&[]).expect("Failed to create VideoPage")
     }
     fn prepare_widgets(&self) {
         let self_ = self.impl_();
@@ -111,10 +119,33 @@ impl VideoPage {
         self_
             .comments_list
             .bind_rusted_model(&self_.comments_model, |c| Self::build_comment(c.clone()));
+
+        let ev_controller = gtk::GestureClick::new();
+        let this = self.downgrade();
+        ev_controller.connect_local("pressed", false, move |_| {
+            gtk::show_uri(
+                None::<&gtk::Window>,
+                &this
+                    .upgrade()
+                    .unwrap()
+                    .impl_()
+                    .video
+                    .borrow()
+                    .as_ref()
+                    .unwrap()
+                    .adaptive_formats
+                    .first()
+                    .unwrap()
+                    .url,
+                0,
+            );
+            None
+        });
+        self_.thumbnail.add_controller(&ev_controller);
     }
     pub(super) fn set_video(&self, mut video: FullVideo) {
         let self_ = self.impl_();
-        self_.video.set(video.clone()).unwrap();
+        self_.video.replace(Some(video.clone()));
         self_.title.set_label(&video.title);
         self_.miniplayer_title.set_label(&video.title);
         self_
@@ -140,16 +171,6 @@ impl VideoPage {
         self_.miniplayer_author.set_label(&video.author);
         self_.author_name.set_label(&video.author);
 
-        let ev_controller = gtk::GestureClick::new();
-        ev_controller.connect("pressed", false, move |_| {
-            gtk::show_uri(
-                None::<&gtk::Window>,
-                &video.adaptive_formats.first().unwrap().url,
-                0,
-            );
-            None
-        });
-        self_.thumbnail.add_controller(&ev_controller);
         self_
             .author_avatar
             .set_image_url(video.author_thumbnails.first().unwrap().url.clone());
@@ -157,6 +178,7 @@ impl VideoPage {
         let video_id = video.video_id.clone();
         let comments_model = self_.comments_model.clone();
 
+        self_.comments_model.clear();
         let mut comments_params = CommentsParams::default();
         comments_params.video_id = video_id;
         let edge_reached_evs = ev_stream!(self_.scrolled_window, edge_reached, |target, edge|)
@@ -166,12 +188,26 @@ impl VideoPage {
             .chain(edge_reached_evs)
             .zip(Client::global().comments(comments_params))
             .filter_map(|(_, c)| future::ready(c.ok()));
-        let side_effect = comments_stream.for_each(move |comments| {
+        let comments_loading_effect = comments_stream.for_each(move |comments| {
             future::ready(comments_model.extend(comments.comments.into_iter()))
         });
 
-        let handle = ctx().spawn_local_with_handle(side_effect).ok();
-        self_.async_handle.set(handle).unwrap();
+        let handle = ctx().spawn_local_with_handle(comments_loading_effect).ok();
+        self_.async_handle.replace(handle);
+    }
+    pub fn unminimize(&self) {
+        let self_ = self.impl_();
+        self.set_valign(gtk::Align::Fill);
+        self_.stack.set_visible_child_name("fullpage");
+    }
+    pub fn minimize(&self) {
+        let self_ = self.impl_();
+        self_.stack.set_visible_child_name("miniplayer");
+        let this = self.downgrade();
+        glib::source::timeout_add_local(std::time::Duration::from_millis(150), move || {
+            this.upgrade().map(|this| this.set_valign(gtk::Align::End));
+            Continue(false)
+        });
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);

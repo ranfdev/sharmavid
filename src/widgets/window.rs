@@ -30,6 +30,8 @@ mod imp {
         pub stack: TemplateChild<adw::ViewStack>,
         #[template_child]
         pub over_stack: TemplateChild<gtk::Stack>,
+        #[template_child]
+        pub video_page: TemplateChild<VideoPage>,
         pub video_list_model: RustedListStore<TrendingVideo>,
         pub settings: gio::Settings,
     }
@@ -42,6 +44,7 @@ mod imp {
                 stack: TemplateChild::default(),
                 over_stack: TemplateChild::default(),
                 video_list_model: RustedListStore::new(),
+                video_page: TemplateChild::default(),
                 settings: gio::Settings::new(APP_ID),
             }
         }
@@ -128,6 +131,8 @@ impl SharMaVidWindow {
         self.add_action(&back);
         let show_video = gio::SimpleAction::new("view-video", Some(glib::VariantTy::STRING));
         self.add_action(&show_video);
+        let minimize_video = gio::SimpleAction::new("minimize-video", None);
+        self.add_action(&minimize_video);
         let show_channel = gio::SimpleAction::new("view-channel", Some(glib::VariantTy::STRING));
         self.add_action(&show_channel);
         let show_search = gio::SimpleAction::new("view-search", None);
@@ -148,25 +153,31 @@ impl SharMaVidWindow {
                     .get()
                     .unwrap())
                 .for_each(|id| this.show_video(id)),
+                ev_stream!(minimize_video, activate, |_target, data| data.cloned())
+                    .for_each(|_| future::ready(this.minimize_video())),
                 ev_stream!(back, activate, |_target, _data| ()).for_each(|_| this.back())
             );
         });
     }
     pub async fn show_channel(&self, channel_id: String) {
         let self_ = self.impl_();
+        self.minimize_video();
         let page = ChannelPage::new();
-        self_.stack.add(&page);
-        self_.stack.set_visible_child(&page);
+        self_.over_stack.add_child(&page);
+        self_.over_stack.set_visible_child(&page);
         let channel = Client::global().channel(&channel_id).await.unwrap();
         page.set_channel(channel);
     }
     pub async fn show_video(&self, video_id: String) {
         let self_ = self.impl_();
-        let page = VideoPage::new();
-        self_.stack.add(&page);
-        self_.stack.set_visible_child(&page);
+        self_.video_page.unminimize();
         let video = Client::global().video(&video_id).await.unwrap();
-        page.set_video(video);
+        let video_page = self_.video_page.clone();
+        glib::source::idle_add_local(move || {
+            video_page.set_video(video.clone());
+            Continue(false)
+        });
+
         // TODO: Put this in a method .as_trending in invidious/core.rs
         /*let trending_video = TrendingVideo {
             title: video.title,
@@ -182,6 +193,10 @@ impl SharMaVidWindow {
             description: Some(video.description),
             description_html: Some(video.description_html),
         };*/
+    }
+    pub fn minimize_video(&self) {
+        let self_ = self.impl_();
+        self_.video_page.minimize();
     }
     pub async fn show_search(&self) {
         let self_ = self.impl_();
