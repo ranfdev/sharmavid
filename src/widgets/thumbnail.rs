@@ -1,5 +1,5 @@
 use crate::ctx;
-use crate::widgets::RemoteImage;
+use crate::widgets::RemoteImageExt;
 use gtk::glib;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
