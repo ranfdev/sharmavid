@@ -6,7 +6,6 @@ mod widgets;
 
 use self::config::{GETTEXT_PACKAGE, LOCALEDIR, RESOURCES_FILE};
 use gettextrs::{gettext, LocaleCategory};
-pub use glib_utils::EvStream;
 use gtk::{gdk, gio, glib};
 pub use invidious::client::{Client, Paged};
 use libadwaita as adw;
@@ -33,7 +32,7 @@ fn main() {
 
     let res = gio::Resource::load(RESOURCES_FILE).expect("Could not load gresource file");
     gio::resources_register(&res);
-    let theme = gtk::IconTheme::for_display(&gdk::Display::default().unwrap()).unwrap();
+    let theme = gtk::IconTheme::for_display(&gdk::Display::default().unwrap());
     theme.add_resource_path("/com/ranfdev/SharMaVid/icons/");
 
     let app = adw::Application::new(Some(config::APP_ID), gio::ApplicationFlags::FLAGS_NONE);

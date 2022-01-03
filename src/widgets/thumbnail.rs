@@ -65,11 +65,11 @@ impl Thumbnail {
     }
 
     pub fn set_href(&self, href: String) {
-        let self_ = self.impl_();
-        *self_.href.borrow_mut() = href.clone();
+        let imp = self.imp();
+        *imp.href.borrow_mut() = href.clone();
 
-        let img = self_.img.clone();
-        let stack = self_.stack.clone();
+        let img = imp.img.clone();
+        let stack = imp.stack.clone();
         stack.set_visible_child_name("placeholder");
         ctx().spawn_local_with_priority(glib::source::PRIORITY_LOW, async move {
             img.set_image_url_future(href).await;

@@ -1,8 +1,8 @@
-use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{Comment, CommentsParams, FullVideo};
 use crate::widgets::{MiniPlayer, RemoteImageExt, Thumbnail};
 use crate::{ctx, Client};
+use ev_stream_gtk_rs::ev_stream;
 use futures::prelude::*;
 use futures::task::LocalSpawnExt;
 use gtk::prelude::*;
@@ -101,13 +101,12 @@ impl VideoPage {
         glib::Object::new(&[]).expect("Failed to create VideoPage")
     }
     fn prepare_widgets(&self) {
-        let self_ = self.impl_();
-        self_.video_player.append(&self_.thumbnail);
-        self_.thumbnail.set_hexpand(true);
-        self_.thumbnail.set_height_request(200);
-        self_
-            .comments_list
-            .bind_rusted_model(&self_.comments_model, |c| Self::build_comment(c.clone()));
+        let imp = self.imp();
+        imp.video_player.append(&imp.thumbnail);
+        imp.thumbnail.set_hexpand(true);
+        imp.thumbnail.set_height_request(200);
+        imp.comments_list
+            .bind_rusted_model(&imp.comments_model, |c| Self::build_comment(c.clone()));
 
         let ev_controller = gtk::GestureClick::new();
         let this = self.downgrade();
@@ -117,7 +116,7 @@ impl VideoPage {
                 &this
                     .upgrade()
                     .unwrap()
-                    .impl_()
+                    .imp()
                     .video
                     .borrow()
                     .as_ref()
@@ -130,44 +129,40 @@ impl VideoPage {
             );
             None
         });
-        self_.thumbnail.add_controller(&ev_controller);
+        imp.thumbnail.add_controller(&ev_controller);
 
         let ev_controller = gtk::GestureClick::new();
     }
     pub(super) fn set_video(&self, mut video: FullVideo) {
-        let self_ = self.impl_();
-        self_.video.replace(Some(video.clone()));
-        self_.title.set_label(&video.title);
+        let imp = self.imp();
+        imp.video.replace(Some(video.clone()));
+        imp.title.set_label(&video.title);
 
-        self_
-            .views_plus_time
+        imp.views_plus_time
             .set_label(&format!("{} views · {}", video.view_count, video.published));
-        self_.author_name.set_label(&video.author);
-        self_.description.set_label(&video.description);
-        self_
-            .view_channel_btn
+        imp.author_name.set_label(&video.author);
+        imp.description.set_label(&video.description);
+        imp.view_channel_btn
             .set_action_target_value(Some(&video.author_id.to_variant()));
-        self_
-            .view_channel_btn
+        imp.view_channel_btn
             .set_action_name(Some("win.view-channel"));
         video
             .video_thumbnails
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
         let best_thumbnail = video.video_thumbnails.last().unwrap();
-        self_.thumbnail.set_href(best_thumbnail.url.clone());
+        imp.thumbnail.set_href(best_thumbnail.url.clone());
 
-        self_.author_name.set_label(&video.author);
+        imp.author_name.set_label(&video.author);
 
-        self_
-            .author_avatar
+        imp.author_avatar
             .set_image_url(video.author_thumbnails.first().unwrap().url.clone());
 
         let video_id = video.video_id.clone();
-        let comments_model = self_.comments_model.clone();
+        let comments_model = imp.comments_model.clone();
 
-        self_.comments_model.clear();
+        imp.comments_model.clear();
         let comments_params = CommentsParams::default();
-        let edge_reached_evs = ev_stream!(self_.scrolled_window, edge_reached, |target, edge|)
+        let edge_reached_evs = ev_stream!(imp.scrolled_window, edge_reached, |target, edge|)
             .filter(|(_, edge)| future::ready(*edge == gtk::PositionType::Bottom))
             .map(|_| ());
         let comments_stream = stream::once(async move { () })
@@ -179,7 +174,7 @@ impl VideoPage {
         });
 
         let handle = ctx().spawn_local_with_handle(comments_loading_effect).ok();
-        self_.async_handle.replace(handle);
+        imp.async_handle.replace(handle);
     }
     pub fn build_comment(comment: Comment) -> gtk::Widget {
         let hbox = gtk::Box::new(gtk::Orientation::Horizontal, 8);

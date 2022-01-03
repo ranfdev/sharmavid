@@ -66,18 +66,18 @@ impl MiniPlayer {
         glib::Object::new(&[]).expect("Failed to create MiniPlayer")
     }
     pub fn set_video(&self, mut video: FullVideo) {
-        let self_ = self.impl_();
+        let imp = self.imp();
         video
             .video_thumbnails
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
         let best_thumbnail = video.video_thumbnails.last().unwrap();
-        self_.title.set_label(&video.title);
-        self_.thumbnail.set_href(best_thumbnail.url.clone());
+        imp.title.set_label(&video.title);
+        imp.thumbnail.set_href(best_thumbnail.url.clone());
 
-        self_.author_name.set_label(&video.author);
+        imp.author_name.set_label(&video.author);
     }
     fn prepare_widgets(&self) {
-        let self_ = self.impl_();
+        let imp = self.imp();
 
         let ev_controller = gtk::GestureClick::new();
         let miniplayer = self.downgrade();

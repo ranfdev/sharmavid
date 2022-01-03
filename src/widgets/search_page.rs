@@ -1,9 +1,9 @@
-use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::{SearchParams, SortBy, TrendingVideo};
 use crate::widgets::VideoRow;
 use crate::{ctx, Client};
 
+use ev_stream_gtk_rs::ev_stream;
 use futures::future::RemoteHandle;
 use futures::join;
 use futures::prelude::*;
@@ -76,17 +76,13 @@ impl SearchPage {
         obj
     }
     fn prepare_widgets(&self) {
-        let self_ = self.impl_();
+        let imp = self.imp();
 
-        self_
-            .video_list
-            .bind_rusted_model(&self_.video_list_model, |v| {
-                VideoRow::new(v.clone()).upcast()
-            });
+        imp.video_list
+            .bind_rusted_model(&imp.video_list_model, |v| VideoRow::new(v.clone()).upcast());
 
-        let search_changed_evs = ev_stream!(self_.search_entry, search_changed, |entry|);
-        let row_activated_evs =
-            ev_stream!(self_.video_list, row_activated, |_list, row| row.clone());
+        let search_changed_evs = ev_stream!(imp.search_entry, search_changed, |entry|);
+        let row_activated_evs = ev_stream!(imp.video_list, row_activated, |_list, row| row.clone());
 
         let this = self.downgrade();
         let handle = ctx()
@@ -99,8 +95,8 @@ impl SearchPage {
                 );
             })
             .ok();
-        self_.async_handle.set(handle).unwrap();
-        let search_entry = self_.search_entry.clone();
+        imp.async_handle.set(handle).unwrap();
+        let search_entry = imp.search_entry.clone();
         glib::source::idle_add_local(move || {
             search_entry.grab_focus();
             Continue(false)
@@ -108,17 +104,17 @@ impl SearchPage {
     }
     async fn handle_search_changed(this: &glib::WeakRef<Self>) -> Option<RemoteHandle<()>> {
         let this = this.upgrade().unwrap();
-        let self_ = this.impl_();
+        let imp = this.imp();
 
-        self_.video_list_model.clear();
+        imp.video_list_model.clear();
 
         let mut params = SearchParams::default();
-        params.query = self_.search_entry.text().to_string();
+        params.query = imp.search_entry.text().to_string();
         params.sort_by = Some(SortBy::Relevance);
 
-        let event_stream = ev_stream!(self_.scrolled_window, edge_reached, |win, edge|);
+        let event_stream = ev_stream!(imp.scrolled_window, edge_reached, |win, edge|);
 
-        let video_list_model = self_.video_list_model.clone();
+        let video_list_model = imp.video_list_model.clone();
         let event_stream = stream::once(async { () }) // Do one initial fetch
             .chain(
                 event_stream

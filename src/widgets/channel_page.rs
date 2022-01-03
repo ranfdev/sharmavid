@@ -74,37 +74,32 @@ impl ChannelPage {
         obj
     }
     fn prepare_widgets(&self) {
-        let self_ = self.impl_();
-        self_
-            .video_list
-            .bind_rusted_model(&self_.video_list_model, |v| {
-                VideoRow::new(v.clone()).upcast()
-            });
-        self_.video_list.connect_row_activated(|_, row| {
+        let imp = self.imp();
+        imp.video_list
+            .bind_rusted_model(&imp.video_list_model, |v| VideoRow::new(v.clone()).upcast());
+        imp.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
             row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
                 .unwrap();
         });
     }
     pub fn set_channel(&self, channel: Channel) {
-        let self_ = self.impl_();
+        let imp = self.imp();
         channel
             .author_thumbnails
             .last()
-            .map(|image| self_.author_avatar.set_image_url(image.url.clone()));
+            .map(|image| imp.author_avatar.set_image_url(image.url.clone()));
 
         channel
             .author_banners
             .first()
-            .map(|image| self_.banner.set_image_url(image.url.clone()));
+            .map(|image| imp.banner.set_image_url(image.url.clone()));
 
-        self_.author_name.set_label(&channel.author);
-        self_
-            .sub_count
+        imp.author_name.set_label(&channel.author);
+        imp.sub_count
             .set_label(&format!("{} subscribers", &channel.sub_count));
-        self_.video_list_model.clear();
-        self_
-            .video_list_model
+        imp.video_list_model.clear();
+        imp.video_list_model
             .extend(channel.latest_videos.into_iter());
     }
 }

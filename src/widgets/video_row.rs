@@ -70,26 +70,24 @@ impl VideoRow {
         obj
     }
     pub fn set_video(&self, mut video: TrendingVideo) {
-        let self_ = self.impl_();
+        let imp = self.imp();
         video
             .video_thumbnails
             .sort_by(|a, b| a.width.partial_cmp(&b.width).unwrap());
-        *self_.video.borrow_mut() = video.clone();
+        *imp.video.borrow_mut() = video.clone();
         let thumbnail_url = video.video_thumbnails.last().unwrap().url.clone();
-        self_.thumbnail.set_href(thumbnail_url);
-        self_.title.set_label(&video.title);
-        self_.author.set_label(&video.author);
-        self_
-            .views
-            .set_label(&format!("{} views", &video.view_count));
+        imp.thumbnail.set_href(thumbnail_url);
+        imp.title.set_label(&video.title);
+        imp.author.set_label(&video.author);
+        imp.views.set_label(&format!("{} views", &video.view_count));
     }
     fn prepare_widgets(&self) {
-        let self_ = self.impl_();
-        self_.thumbnail.set_width_request(160);
-        self_.thumbnail.set_height_request(90);
+        let imp = self.imp();
+        imp.thumbnail.set_width_request(160);
+        imp.thumbnail.set_height_request(90);
     }
     pub fn video(&self) -> TrendingVideo {
-        let self_ = self.impl_();
-        self_.video.borrow().clone()
+        let imp = self.imp();
+        imp.video.borrow().clone()
     }
 }

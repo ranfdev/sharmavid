@@ -1,10 +1,10 @@
 use crate::config::{APP_ID, PROFILE};
-use crate::ev_stream;
 use crate::glib_utils::{RustedListBox, RustedListStore};
 use crate::invidious::core::TrendingVideo;
 use crate::widgets::{ChannelPage, MiniPlayer, SearchPage, VideoPage, VideoRow};
 use crate::Client;
 use adw::subclass::prelude::*;
+use ev_stream_gtk_rs::ev_stream;
 use futures::join;
 use futures::prelude::*;
 use gtk::prelude::*;
@@ -122,15 +122,14 @@ impl SharMaVidWindow {
     }
 
     fn save_window_size(&self) -> Result<(), glib::BoolError> {
-        let self_ = self.impl_();
+        let imp = self.imp();
 
         let (width, height) = self.default_size();
 
-        self_.settings.set_int("window-width", width)?;
-        self_.settings.set_int("window-height", height)?;
+        imp.settings.set_int("window-width", width)?;
+        imp.settings.set_int("window-height", height)?;
 
-        self_
-            .settings
+        imp.settings
             .set_boolean("is-maximized", self.is_maximized())?;
 
         Ok(())
@@ -173,20 +172,20 @@ impl SharMaVidWindow {
         });
     }
     pub async fn show_channel(&self, channel_id: String) {
-        let self_ = self.impl_();
+        let imp = self.imp();
         self.minimize_video();
         let page = ChannelPage::new();
-        self_.over_stack.add_child(&page);
-        self_.over_stack.set_visible_child(&page);
+        imp.over_stack.add_child(&page);
+        imp.over_stack.set_visible_child(&page);
         let channel = Client::global().channel(&channel_id).await.unwrap();
         page.set_channel(channel);
     }
     pub async fn show_video(&self, video_id: String) {
-        let self_ = self.impl_();
+        let imp = self.imp();
         self.unminimize_video();
         let video = Client::global().video(&video_id).await.unwrap();
-        let video_page = self_.video_page.clone();
-        let mp = self_.mini_player.clone();
+        let video_page = imp.video_page.clone();
+        let mp = imp.mini_player.clone();
         glib::source::idle_add_local(move || {
             video_page.set_video(video.clone());
             mp.set_video(video.clone());
@@ -210,27 +209,26 @@ impl SharMaVidWindow {
         };*/
     }
     pub fn unminimize_video(&self) {
-        let self_ = self.impl_();
-        self_.video_over_stack.set_visible_child(&*self_.video_page);
+        let imp = self.imp();
+        imp.video_over_stack.set_visible_child(&*imp.video_page);
     }
     pub fn minimize_video(&self) {
-        let self_ = self.impl_();
-        self_.video_over_stack.set_visible_child(&*self_.overlay);
+        let imp = self.imp();
+        imp.video_over_stack.set_visible_child(&*imp.overlay);
     }
     pub async fn show_search(&self) {
-        let self_ = self.impl_();
+        let imp = self.imp();
         let search_page = SearchPage::new();
-        self_.over_stack.add_child(&search_page);
-        self_.over_stack.set_visible_child(&search_page);
+        imp.over_stack.add_child(&search_page);
+        imp.over_stack.set_visible_child(&search_page);
     }
     pub fn setup_widgets(&self) {
-        let self_ = self.impl_();
-        self_
-            .video_list
-            .bind_rusted_model(&self_.video_list_model, move |v| {
+        let imp = self.imp();
+        imp.video_list
+            .bind_rusted_model(&imp.video_list_model, move |v| {
                 VideoRow::new(v.clone()).upcast()
             });
-        self_.video_list.connect_row_activated(|_, row| {
+        imp.video_list.connect_row_activated(|_, row| {
             let row: VideoRow = row.clone().downcast().unwrap();
             row.activate_action("win.view-video", Some(&row.video().video_id.to_variant()))
                 .unwrap();
@@ -238,8 +236,8 @@ impl SharMaVidWindow {
     }
 
     pub async fn back(&self) {
-        let self_ = self.impl_();
-        let stack = self_.over_stack.clone();
+        let imp = self.imp();
+        let stack = imp.over_stack.clone();
 
         let pages = &stack
             .pages()
@@ -268,11 +266,11 @@ impl SharMaVidWindow {
         }
     }
     fn load_window_size(&self) {
-        let self_ = self.impl_();
+        let imp = self.imp();
 
-        let width = self_.settings.int("window-width");
-        let height = self_.settings.int("window-height");
-        let is_maximized = self_.settings.boolean("is-maximized");
+        let width = imp.settings.int("window-width");
+        let height = imp.settings.int("window-height");
+        let is_maximized = imp.settings.boolean("is-maximized");
 
         self.set_default_size(width, height);
 
@@ -281,8 +279,8 @@ impl SharMaVidWindow {
         }
     }
     pub fn load_popular(&self) {
-        let self_ = self.impl_();
-        let video_list_model = self_.video_list_model.clone();
+        let imp = self.imp();
+        let video_list_model = imp.video_list_model.clone();
         glib::MainContext::default().spawn_local(async move {
             video_list_model.extend(
                 Client::global()
