@@ -572,7 +572,7 @@ dependencies = [
 [[package]]
 name = "ev-stream-gtk-rs"
 version = "0.1.0"
-source = "git+https://github.com/ranfdev/ev-stream-gtk-rs.git#1fa72f7fbb14cec9e5fd44852e930893aef7f8a8"
+source = "git+https://github.com/ranfdev/ev-stream-gtk-rs.git#f827acdaabcacf480b569823b1d0b52e7d06e404"
 dependencies = [
  "futures-channel",
  "futures-core",
